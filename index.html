@@ -91,7 +91,7 @@
       <a-entity light="type: directional; intensity: 1; castShadow: true" position="2 4 -2"></a-entity>
 
       <!-- RIG + caméra + contrôleurs -->
-      <a-entity id="rig" position="0 0.5 0" joystick-movement="speed: 2" snap-turn="angle: 30; cooldown: 300">
+      <a-entity id="rig" position="0 0.25 0" joystick-movement="speed: 2" snap-turn="angle: 30; cooldown: 300">
         <a-entity id="head" camera wasd-controls-enabled="false" look-controls></a-entity>
 
         <!-- Mains : super-hands limité au bouton grip (side) + collision par sphère -->
@@ -112,20 +112,65 @@
 
       <!-- OBJETS SAISISSABLES (physiques) -->
 
-      <a-sphere class="grabbable" position="0 1.2 -2" radius="0.3" color="#EF2D5E"
+      <a-sphere class="grabbable" position="0 1.2 -2" radius="0.1" color="#EF2D5E"
                 shadow="cast: true; receive: true"
                 grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
                 dynamic-body="mass: 0.5; shape: sphere">
       </a-sphere>
-
-      <a-cylinder class="grabbable" position="1 0.9 -2.4" radius="0.1" height="0.8" color="#FFC65D"
+      <!-- quille x10 -->
+      <a-cylinder class="grabbable" position="1 0.9 -2.4" radius="0.05" height="0.3" color="#FFC65D"
+                  shadow="cast: true; receive: true"
+                  grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+                  dynamic-body="mass: 0.75; shape: cylinder">
+      </a-cylinder>
+      <a-cylinder class="grabbable" position="1.2 0.9 -2.1" radius="0.05" height="0.3" color="#FFC65D"
+                  shadow="cast: true; receive: true"
+                  grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+                  dynamic-body="mass: 0.75; shape: cylinder">
+      </a-cylinder>
+      <a-cylinder class="grabbable" position="0.8 0.9 -2.1" radius="0.05" height="0.3" color="#FFC65D"
+                  shadow="cast: true; receive: true"
+                  grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+                  dynamic-body="mass: 0.75; shape: cylinder">
+      </a-cylinder>
+      <a-cylinder class="grabbable" position="1.4 0.9 -2.4" radius="0.05" height="0.3" color="#FFC65D"
+                  shadow="cast: true; receive: true"
+                  grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+                  dynamic-body="mass: 0.75; shape: cylinder">
+      </a-cylinder>
+      <a-cylinder class="grabbable" position="0.6 0.9 -2.4" radius="0.05" height="0.3" color="#FFC65D"
+                  shadow="cast: true; receive: true"
+                  grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+                  dynamic-body="mass: 0.75; shape: cylinder">
+      </a-cylinder>
+      <a-cylinder class="grabbable" position="1 0.9 -1.8" radius="0.05" height="0.3" color="#FFC65D"
+                  shadow="cast: true; receive: true"
+                  grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+                  dynamic-body="mass: 0.75; shape: cylinder">
+      </a-cylinder>
+      <a-cylinder class="grabbable" position="0.8 0.9 -1.8" radius="0.05" height="0.3" color="#FFC65D"
+                  shadow="cast: true; receive: true"
+                  grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+                  dynamic-body="mass: 0.75; shape: cylinder">
+      </a-cylinder>
+      <a-cylinder class="grabbable" position="1.2 0.9 -1.8" radius="0.05" height="0.3" color="#FFC65D"
+                  shadow="cast: true; receive: true"
+                  grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+                  dynamic-body="mass: 0.75; shape: cylinder">
+      </a-cylinder>
+      <a-cylinder class="grabbable" position="0.6 0.9 -2.1" radius="0.05" height="0.3" color="#FFC65D"
+                  shadow="cast: true; receive: true"
+                  grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+                  dynamic-body="mass: 0.75; shape: cylinder">
+      </a-cylinder>
+      <a-cylinder class="grabbable" position="1.4 0.9 -2.1" radius="0.05" height="0.3" color="#FFC65D"
                   shadow="cast: true; receive: true"
                   grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
                   dynamic-body="mass: 0.75; shape: cylinder">
       </a-cylinder>
 
       <!-- Sol -->
-      <a-plane position="0 0 -1" rotation="-90 0 0" width="100" height="100" src="#groundTexture" opacity="0"
+      <a-plane position="0 0 -1" rotation="-90 0 0" width="100" height="100" src="#groundTexture" opacity="1"
                shadow="cast: false; receive: true"
                static-body>
       </a-plane>
