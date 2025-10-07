@@ -125,41 +125,36 @@
       });
 
       AFRAME.registerComponent('press-button', {
-          schema: { cooldown: {type: 'number', default: 400} },
-          init() {
-            const el = this.el;
-            const pos = el.object3D.position;
-            this.upY = pos.y;
-            this.downY = this.upY - 0.02;
-            this.last = 0;
+        schema: { cooldown: {type: 'number', default: 400} },
+        init() {
+          const el = this.el;
+          const base = el.object3D.position.clone();   // position initiale figée
+          this.upY   = base.y;
+          this.downY = this.upY - 0.02;
+          this.last  = 0;
 
-            const pressDown = () => {
-              el.setAttribute('animation__down', `property: position; to: ${pos.x} ${this.downY} ${pos.z}; dur: 70; easing: easeOutQuad;`);
-            };
-            const releaseUp = () => {
-              el.setAttribute('animation__up', `property: position; to: ${pos.x} ${this.upY} ${pos.z}; dur: 120; easing: easeOutQuad;`);
-            };
+          // Déclarer les animations UNE FOIS, déclenchées par des events
+          el.setAttribute('animation__down',
+            `property: position; to: ${base.x} ${this.downY} ${base.z}; dur: 70; easing: easeOutQuad; startEvents: goDown; dir: normal`);
+          el.setAttribute('animation__up',
+            `property: position; to: ${base.x} ${this.upY} ${base.z}; dur: 120; easing: easeOutQuad; startEvents: goUp; dir: normal`);
 
-            const doReset = () => {
-              const now = Date.now();
-              if (now - this.last < this.data.cooldown) return; // anti spam
-              this.last = now;
-              document.querySelectorAll('[resettable]').forEach(e => {
-                const c = e.components.resettable;
-                if (c) c.resetNow();
-              });
-            };
+          const doReset = () => {
+            const now = Date.now();
+            if (now - this.last < this.data.cooldown) return; // anti-spam
+            this.last = now;
+            document.querySelectorAll('[resettable]').forEach(e => e.components.resettable?.resetNow());
+          };
 
-            // Pose la main → enfonce + reset
-            el.addEventListener('hover-start', () => { pressDown(); doReset(); });
-            // Retire la main → remonte
-            el.addEventListener('hover-end',   () => { releaseUp(); });
+          // Pose la main → enfonce + reset ; retire la main → remonte
+          el.addEventListener('hover-start', () => { el.emit('goDown'); doReset(); });
+          el.addEventListener('hover-end',   () => { el.emit('goUp'); });
 
-            // fallback souris
-            el.addEventListener('click', () => { pressDown(); doReset(); setTimeout(releaseUp, 120); });
-          }
-        });
-      </script>
+          // fallback souris
+          el.addEventListener('click', () => { el.emit('goDown'); doReset(); setTimeout(() => el.emit('goUp'), 120); });
+        }
+      });
+    </script>
 
     </head>
 
@@ -277,18 +272,18 @@
         <!-- BOUTON RESET flottant, à droite du départ -->
         <a-entity id="reset-station" position="1.55 0 -0.6">
           <!-- pied fin -->
-          <a-box position="0 0.15 0" width="0.04" height="0.30" depth="0.04"
+          <a-box position="0 0.15 0" width="0.04" height="0.9" depth="0.04"
                 material="color:#444" static-body="shape: box"></a-box>
 
           <!-- plateau -->
-          <a-box position="0 0.31 0" width="0.20" height="0.02" depth="0.20"
+          <a-box position="0 0.61 0" width="0.20" height="0.02" depth="0.20"
                 material="color:#2b2b2b" static-body="shape: box"></a-box>
 
           <!-- bouton enfonçable -->
           <a-box id="reset-button"
                 class="pressable"
                 hoverable
-                position="0 0.33 0"
+                position="0 0.63 0"
                 width="0.12" height="0.03" depth="0.12"
                 material="color:#e53935; emissive:#a00000; emissiveIntensity:0.4; metalness:0.2; roughness:0.5"
                 press-button
@@ -297,7 +292,7 @@
 
           <!-- étiquette -->
           <a-entity text="value: RESET; align: center; color: #fff; width: 1.2"
-                    position="0 0.37 0"></a-entity>
+                    position="0 0.67 0"></a-entity>
         </a-entity>
 
 
