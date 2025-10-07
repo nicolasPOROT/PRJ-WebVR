@@ -70,40 +70,60 @@
           }
         });
       /** Marque les entités à réinitialiser et mémorise leur état initial */
+      
       AFRAME.registerComponent('resettable', {
-        init() {
+        init () {
           const el = this.el;
-          // mémorise
-          this.startPos = el.object3D.position.clone();
-          this.startRot = el.object3D.rotation.clone();
-          // garde la définition du dynamic-body pour le recréer proprement
-          this.dyn = el.getAttribute('dynamic-body');
-        },
-        resetNow() {
-          const el = this.el;
-          // 1) retirer la physique pour éviter la "résistance"
-          if (el.hasAttribute('dynamic-body')) el.removeAttribute('dynamic-body');
+          // Mémorise local + MONDE (pour éviter les surprises avec les parents décalés)
+          this.startLocalPos = el.object3D.position.clone();
+          this.startLocalRot = el.object3D.rotation.clone();
 
-          // 2) remettre position & rotation
-          el.object3D.position.copy(this.startPos);
-          el.object3D.rotation.copy(this.startRot);
+          this.startWorldPos = new THREE.Vector3();
+          this.startWorldQuat = new THREE.Quaternion();
+          el.object3D.getWorldPosition(this.startWorldPos);
+          el.object3D.getWorldQuaternion(this.startWorldQuat);
+        },
+
+        resetNow () {
+          const el = this.el;
+          const eps = 0.005; // petit lift pour éviter l’interpénétration
+
+          // 1) Remettre la partie visuelle (local)
+          el.object3D.position.copy(this.startLocalPos);
+          el.object3D.rotation.copy(this.startLocalRot);
           el.object3D.updateMatrixWorld(true);
 
-          // 3) réappliquer la physique
-          if (this.dyn != null) el.setAttribute('dynamic-body', this.dyn);
+          // 2) Si le body physique existe, le remettre en MONDE (sinon on attend 'body-loaded')
+          const applyToBody = (body) => {
+            if (!body) return;
+            // Position monde + petit epsilon Y
+            const p = this.startWorldPos.clone(); p.y += eps;
 
-          // 4) quand le corps est prêt, annuler vitesses
-          el.addEventListener('body-loaded', () => {
-            const body = el.body;
-            if (body) {
-              // compatibles Cannon & Ammo via helpers
-              try { body.velocity.set(0,0,0); } catch(e){}
-              try { body.angularVelocity.set(0,0,0); } catch(e){}
-              try { body.sleep && body.sleep(); } catch(e){}
+            // ----- Cannon.js -----
+            if (body.position && body.quaternion) {
+              body.position.set(p.x, p.y, p.z);
+              body.quaternion.set(this.startWorldQuat.x, this.startWorldQuat.y, this.startWorldQuat.z, this.startWorldQuat.w);
+              if (body.velocity) body.velocity.set(0,0,0);
+              if (body.angularVelocity) body.angularVelocity.set(0,0,0);
+              if (body.sleep) body.sleep();
+              if (body.wakeUp) body.wakeUp();
             }
-          }, {once:true});
+
+            // ----- Ammo.js (aframe-physics-system l’unifie assez bien, les lignes ci-dessus suffisent souvent) -----
+            try { body.activate && body.activate(); } catch(e) {}
+          };
+
+          if (el.body) {
+            applyToBody(el.body);
+            // Sync A-Frame -> Physique si dispo
+            try { el.components['dynamic-body']?.syncToPhysics(); } catch(e) {}
+          } else {
+            // Le body n'est pas encore créé (rare ici) : attendre et appliquer
+            el.addEventListener('body-loaded', () => applyToBody(el.body), {once:true});
+          }
         }
       });
+
       AFRAME.registerComponent('press-button', {
           schema: { cooldown: {type: 'number', default: 400} },
           init() {
