@@ -1,181 +1,185 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8" />
-    <title>Projet WebVR</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <head>
+      <meta charset="utf-8" />
+      <title>Projet WebVR</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <!-- A-Frame 1.7.0 -->
-    <script src="https://aframe.io/releases/1.7.0/aframe.min.js"></script>
+      <!-- A-Frame 1.7.0 -->
+      <script src="https://aframe.io/releases/1.7.0/aframe.min.js"></script>
 
-    <!-- A-Frame 1.5+ : éviter le conflit de nom "grabbable" -->
-    <script> delete AFRAME.components["grabbable"]; </script> <!-- cf. super-hands -->
+      <!-- A-Frame 1.5+ : éviter le conflit de nom "grabbable" -->
+      <script> delete AFRAME.components["grabbable"]; </script> <!-- cf. super-hands -->
 
-    <!-- aframe-extras (sphere-collider) -->
-    <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.5.2/dist/aframe-extras.min.js"></script>
+      <!-- aframe-extras (sphere-collider) -->
+      <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.5.2/dist/aframe-extras.min.js"></script>
 
-    <!-- Physics system (CANNON/Ammo support) -->
-    <script src="https://cdn.jsdelivr.net/npm/@c-frame/aframe-physics-system@4.1.0/dist/aframe-physics-system.min.js"></script>
+      <!-- Physics system (CANNON/Ammo support) -->
+      <script src="https://cdn.jsdelivr.net/npm/@c-frame/aframe-physics-system@4.1.0/dist/aframe-physics-system.min.js"></script>
 
-    <!-- super-hands 3.x -->
-    <script src="https://unpkg.com/super-hands@3.0.5/dist/super-hands.min.js"></script>
+      <!-- super-hands 3.x -->
+      <script src="https://unpkg.com/super-hands@3.0.5/dist/super-hands.min.js"></script>
 
-    <!-- Tes composants de déplacement -->
-    <script>
-      // Déplacement joystick gauche
-      AFRAME.registerComponent('joystick-movement', {
-        schema: { speed: { type: 'number', default: 2 } },
-        init: function () {
-          const rig = document.querySelector('#rig');
-          const head = document.querySelector('#head');
-          const leftHand = document.querySelector('#leftHand');
-          const speed = this.data.speed;
-          const DEADZONE = 0.1;
+      <!-- Tes composants de déplacement -->
+      <script>
+        // Déplacement joystick gauche
+        AFRAME.registerComponent('joystick-movement', {
+          schema: { speed: { type: 'number', default: 2 } },
+          init: function () {
+            const rig = document.querySelector('#rig');
+            const head = document.querySelector('#head');
+            const leftHand = document.querySelector('#leftHand');
+            const speed = this.data.speed;
+            const DEADZONE = 0.1;
 
-          leftHand.addEventListener('thumbstickmoved', function (evt) {
-            const dx = evt.detail.x, dy = evt.detail.y;
-            if (Math.abs(dx) < DEADZONE && Math.abs(dy) < DEADZONE) return;
+            leftHand.addEventListener('thumbstickmoved', function (evt) {
+              const dx = evt.detail.x, dy = evt.detail.y;
+              if (Math.abs(dx) < DEADZONE && Math.abs(dy) < DEADZONE) return;
 
-            const forward = new THREE.Vector3();
-            head.object3D.getWorldDirection(forward);
-            forward.y = 0; forward.normalize();
+              const forward = new THREE.Vector3();
+              head.object3D.getWorldDirection(forward);
+              forward.y = 0; forward.normalize();
 
-            const right = new THREE.Vector3();
-            right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).negate();
+              const right = new THREE.Vector3();
+              right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).negate();
 
-            const step = 0.05 * speed;
-            const rigPos = rig.object3D.position;
-            rigPos.addScaledVector(forward, dy * step);
-            rigPos.addScaledVector(right,  dx * step);
-          });
-        }
-      });
+              const step = 0.05 * speed;
+              const rigPos = rig.object3D.position;
+              rigPos.addScaledVector(forward, dy * step);
+              rigPos.addScaledVector(right,  dx * step);
+            });
+          }
+        });
 
-      // Rotation par crans (joystick droit)
-      AFRAME.registerComponent('snap-turn', {
-        schema: { angle: { type: 'number', default: 30 }, cooldown: { type: 'number', default: 300 } },
-        init: function () {
-          const rig = document.querySelector('#rig');
-          const rightHand = document.querySelector('#rightHand');
-          const angle = this.data.angle, cooldown = this.data.cooldown;
-          let lastTurn = 0;
-          rightHand.addEventListener('thumbstickmoved', function (evt) {
-            const now = Date.now(), x = evt.detail.x;
-            if (Math.abs(x) < 0.8 || now - lastTurn < cooldown) return;
-            const rad = THREE.MathUtils.degToRad(angle);
-            if (x > 0.8)  rig.object3D.rotation.y -= rad;
-            else          rig.object3D.rotation.y += rad;
-            lastTurn = now;
-          });
-        }
-      });
-    </script>
-  </head>
+        // Rotation par crans (joystick droit)
+        AFRAME.registerComponent('snap-turn', {
+          schema: { angle: { type: 'number', default: 30 }, cooldown: { type: 'number', default: 300 } },
+          init: function () {
+            const rig = document.querySelector('#rig');
+            const rightHand = document.querySelector('#rightHand');
+            const angle = this.data.angle, cooldown = this.data.cooldown;
+            let lastTurn = 0;
+            rightHand.addEventListener('thumbstickmoved', function (evt) {
+              const now = Date.now(), x = evt.detail.x;
+              if (Math.abs(x) < 0.8 || now - lastTurn < cooldown) return;
+              const rad = THREE.MathUtils.degToRad(angle);
+              if (x > 0.8)  rig.object3D.rotation.y -= rad;
+              else          rig.object3D.rotation.y += rad;
+              lastTurn = now;
+            });
+          }
+        });
+      </script>
+    </head>
 
-  <body>
-    <a-scene
-      shadow="type: pcfsoft"
-      renderer="antialias: true"
-      vr-mode-ui="enabled: true"
-      device-orientation-permission-ui="enabled: true"
-      physics="gravity: -9.8; debug: false"
-    >
-      <!-- Assets -->
-      <a-assets>
-        <img id="skyTexture" src="./assets/skynet.png" />
-        <img id="groundTexture" src="./assets/grass.jpg" />
-      </a-assets>
+    <body>
+      <a-scene
+        shadow="type: pcfsoft"
+        renderer="antialias: true"
+        vr-mode-ui="enabled: true"
+        device-orientation-permission-ui="enabled: true"
+        physics="gravity: -9.8; debug: false"
+      >
+        <!-- Assets -->
+        <a-assets>
+          <img id="skyTexture" src="./assets/skynet.png" />
+          <img id="groundTexture" src="./assets/grass.jpg" />
+          <a-asset-item id="bowlingscene" src="assets/VR_Bowling_building.glb"></a-asset-item>
+          <a-asset-item id="bowlingball" src="assets/VR_Bowling_ball.glb"></a-asset-item>
+          <a-asset-item id="bowlingpin" src="assets/VR_Bowling_pin.glb"></a-asset-item>
+        </a-assets>
 
-      <!-- Lumières -->
-      <a-entity light="type: ambient; intensity: 0.4"></a-entity>
-      <a-entity light="type: directional; intensity: 1; castShadow: true" position="2 4 -2"></a-entity>
+        <!-- Lumières -->
+        <a-entity light="type: ambient; intensity: 0.4"></a-entity>
+        <a-entity light="type: directional; intensity: 1; castShadow: true" position="2 4 -2"></a-entity>
 
-      <!-- RIG + caméra + contrôleurs -->
-      <a-entity id="rig" position="0 0.25 0" joystick-movement="speed: 2" snap-turn="angle: 30; cooldown: 300">
-        <a-entity id="head" camera wasd-controls-enabled="false" look-controls></a-entity>
+        <!-- RIG + caméra + contrôleurs -->
+        <a-entity id="rig" position="0 0.25 0" joystick-movement="speed: 2" snap-turn="angle: 30; cooldown: 300">
+          <a-entity id="head" camera wasd-controls-enabled="false" look-controls></a-entity>
 
-        <!-- Mains : super-hands limité au bouton grip (side) + collision par sphère -->
-        <a-entity id="leftHand"
-          oculus-touch-controls="hand: left"
-          super-hands="grabStartButtons: gripdown, squeezestart; grabEndButtons: gripup, squeezeend"
-          sphere-collider="objects: .grabbable"
-          static-body="shape: sphere; sphereRadius: 0.03">
+          <!-- Mains : super-hands limité au bouton grip (side) + collision par sphère -->
+          <a-entity id="leftHand"
+            oculus-touch-controls="hand: left"
+            super-hands="grabStartButtons: gripdown, squeezestart; grabEndButtons: gripup, squeezeend"
+            sphere-collider="objects: .grabbable"
+            static-body="shape: sphere; sphereRadius: 0.03">
+          </a-entity>
+
+          <a-entity id="rightHand"
+            oculus-touch-controls="hand: right"
+            super-hands="grabStartButtons: gripdown, squeezestart; grabEndButtons: gripup, squeezeend"
+            sphere-collider="objects: .grabbable"
+            static-body="shape: sphere; sphereRadius: 0.03">
+          </a-entity>
         </a-entity>
+        
+        <!-- OBJETS SAISISSABLES (physiques) -->
 
-        <a-entity id="rightHand"
-          oculus-touch-controls="hand: right"
-          super-hands="grabStartButtons: gripdown, squeezestart; grabEndButtons: gripup, squeezeend"
-          sphere-collider="objects: .grabbable"
-          static-body="shape: sphere; sphereRadius: 0.03">
-        </a-entity>
-      </a-entity>
+        <a-sphere class="grabbable" position="0 1.2 -2" radius="0.15" color="#EF2D5E"
+                  shadow="cast: true; receive: true" opacity="0"
+                  grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+                  dynamic-body="mass: 1.5; shape: sphere">
+                  <a-entity id="ballmodel" gltf-model="#bowlingball" position="-0.013 0.014 0.008" scale="0.19 0.19 0.19"></a-entity>
+        </a-sphere>
+        <!-- quille x10 -->
+        <a-cylinder class="grabbable" position="1 0.1 -2.4" radius="0.05" height="0.3" color="#FFC65D"
+                    shadow="cast: true; receive: true"
+                    grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+                    dynamic-body="mass: 0.75; shape: cylinder">
+        </a-cylinder>
+        <a-cylinder class="grabbable" position="1.2 0.1 -2.1" radius="0.05" height="0.3" color="#FFC65D"
+                    shadow="cast: true; receive: true"
+                    grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+                    dynamic-body="mass: 0.75; shape: cylinder">
+        </a-cylinder>
+        <a-cylinder class="grabbable" position="0.8 0.1 -2.1" radius="0.05" height="0.3" color="#FFC65D"
+                    shadow="cast: true; receive: true"
+                    grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+                    dynamic-body="mass: 0.75; shape: cylinder">
+        </a-cylinder>
+        <a-cylinder class="grabbable" position="1.4 0.1 -2.4" radius="0.05" height="0.3" color="#FFC65D"
+                    shadow="cast: true; receive: true"
+                    grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+                    dynamic-body="mass: 0.75; shape: cylinder">
+        </a-cylinder>
+        <a-cylinder class="grabbable" position="0.6 0.1 -2.4" radius="0.05" height="0.3" color="#FFC65D"
+                    shadow="cast: true; receive: true"
+                    grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+                    dynamic-body="mass: 0.75; shape: cylinder">
+        </a-cylinder>
+        <a-cylinder class="grabbable" position="1 0.1 -1.8" radius="0.05" height="0.3" color="#FFC65D"
+                    shadow="cast: true; receive: true"
+                    grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+                    dynamic-body="mass: 0.75; shape: cylinder">
+        </a-cylinder>
+        <a-cylinder class="grabbable" position="0.8 0.1 -1.8" radius="0.05" height="0.3" color="#FFC65D"
+                    shadow="cast: true; receive: true"
+                    grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+                    dynamic-body="mass: 0.75; shape: cylinder">
+        </a-cylinder>
+        <a-cylinder class="grabbable" position="1.2 0.1 -1.8" radius="0.05" height="0.3" color="#FFC65D"
+                    shadow="cast: true; receive: true"
+                    grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+                    dynamic-body="mass: 0.75; shape: cylinder">
+        </a-cylinder>
+        <a-cylinder class="grabbable" position="0.6 0.1 -2.1" radius="0.05" height="0.3" color="#FFC65D"
+                    shadow="cast: true; receive: true"
+                    grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+                    dynamic-body="mass: 0.75; shape: cylinder">
+        </a-cylinder>
+        <a-cylinder class="grabbable" position="1.4 0.1 -2.1" radius="0.05" height="0.3" color="#FFC65D"
+                    shadow="cast: true; receive: true"
+                    grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+                    dynamic-body="mass: 0.75; shape: cylinder">
+        </a-cylinder>
 
-      <!-- OBJETS SAISISSABLES (physiques) -->
+        <!-- Sol -->
+        <a-plane position="0 0 -1" rotation="-90 0 0" width="100" height="100" src="#groundTexture" opacity="1"
+                shadow="cast: false; receive: true"
+                static-body>
+        </a-plane>
 
-      <a-sphere class="grabbable" position="0 1.2 -2" radius="0.15" color="#EF2D5E"
-                shadow="cast: true; receive: true"
-                grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
-                dynamic-body="mass: 1.5; shape: sphere">
-      </a-sphere>
-      <!-- quille x10 -->
-      <a-cylinder class="grabbable" position="1 0.1 -2.4" radius="0.05" height="0.3" color="#FFC65D"
-                  shadow="cast: true; receive: true"
-                  grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
-                  dynamic-body="mass: 0.75; shape: cylinder">
-      </a-cylinder>
-      <a-cylinder class="grabbable" position="1.2 0.1 -2.1" radius="0.05" height="0.3" color="#FFC65D"
-                  shadow="cast: true; receive: true"
-                  grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
-                  dynamic-body="mass: 0.75; shape: cylinder">
-      </a-cylinder>
-      <a-cylinder class="grabbable" position="0.8 0.1 -2.1" radius="0.05" height="0.3" color="#FFC65D"
-                  shadow="cast: true; receive: true"
-                  grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
-                  dynamic-body="mass: 0.75; shape: cylinder">
-      </a-cylinder>
-      <a-cylinder class="grabbable" position="1.4 0.1 -2.4" radius="0.05" height="0.3" color="#FFC65D"
-                  shadow="cast: true; receive: true"
-                  grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
-                  dynamic-body="mass: 0.75; shape: cylinder">
-      </a-cylinder>
-      <a-cylinder class="grabbable" position="0.6 0.1 -2.4" radius="0.05" height="0.3" color="#FFC65D"
-                  shadow="cast: true; receive: true"
-                  grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
-                  dynamic-body="mass: 0.75; shape: cylinder">
-      </a-cylinder>
-      <a-cylinder class="grabbable" position="1 0.1 -1.8" radius="0.05" height="0.3" color="#FFC65D"
-                  shadow="cast: true; receive: true"
-                  grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
-                  dynamic-body="mass: 0.75; shape: cylinder">
-      </a-cylinder>
-      <a-cylinder class="grabbable" position="0.8 0.1 -1.8" radius="0.05" height="0.3" color="#FFC65D"
-                  shadow="cast: true; receive: true"
-                  grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
-                  dynamic-body="mass: 0.75; shape: cylinder">
-      </a-cylinder>
-      <a-cylinder class="grabbable" position="1.2 0.1 -1.8" radius="0.05" height="0.3" color="#FFC65D"
-                  shadow="cast: true; receive: true"
-                  grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
-                  dynamic-body="mass: 0.75; shape: cylinder">
-      </a-cylinder>
-      <a-cylinder class="grabbable" position="0.6 0.1 -2.1" radius="0.05" height="0.3" color="#FFC65D"
-                  shadow="cast: true; receive: true"
-                  grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
-                  dynamic-body="mass: 0.75; shape: cylinder">
-      </a-cylinder>
-      <a-cylinder class="grabbable" position="1.4 0.1 -2.1" radius="0.05" height="0.3" color="#FFC65D"
-                  shadow="cast: true; receive: true"
-                  grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
-                  dynamic-body="mass: 0.75; shape: cylinder">
-      </a-cylinder>
-
-      <!-- Sol -->
-      <a-plane position="0 0 -1" rotation="-90 0 0" width="100" height="100" src="#groundTexture" opacity="1"
-               shadow="cast: false; receive: true"
-               static-body>
-      </a-plane>
-
-      <a-sky src="#skyTexture"></a-sky>
-    </a-scene>
-  </body>
+        <a-sky src="#skyTexture"></a-sky>
+      </a-scene>
+    </body>
 </html>
