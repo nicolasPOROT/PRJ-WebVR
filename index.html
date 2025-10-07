@@ -69,7 +69,72 @@
             });
           }
         });
+      /** Marque les entités à réinitialiser et mémorise leur état initial */
+      AFRAME.registerComponent('resettable', {
+        init() {
+          const el = this.el;
+          // mémorise
+          this.startPos = el.object3D.position.clone();
+          this.startRot = el.object3D.rotation.clone();
+          // garde la définition du dynamic-body pour le recréer proprement
+          this.dyn = el.getAttribute('dynamic-body');
+        },
+        resetNow() {
+          const el = this.el;
+          // 1) retirer la physique pour éviter la "résistance"
+          if (el.hasAttribute('dynamic-body')) el.removeAttribute('dynamic-body');
+
+          // 2) remettre position & rotation
+          el.object3D.position.copy(this.startPos);
+          el.object3D.rotation.copy(this.startRot);
+          el.object3D.updateMatrixWorld(true);
+
+          // 3) réappliquer la physique
+          if (this.dyn != null) el.setAttribute('dynamic-body', this.dyn);
+
+          // 4) quand le corps est prêt, annuler vitesses
+          el.addEventListener('body-loaded', () => {
+            const body = el.body;
+            if (body) {
+              // compatibles Cannon & Ammo via helpers
+              try { body.velocity.set(0,0,0); } catch(e){}
+              try { body.angularVelocity.set(0,0,0); } catch(e){}
+              try { body.sleep && body.sleep(); } catch(e){}
+            }
+          }, {once:true});
+        }
+      });
+
+      /** Bouton enfonçable qui émet l'événement reset */
+      AFRAME.registerComponent('press-button', {
+        schema: { target: {type: 'selector'} },
+        init() {
+          const el = this.el;
+          const upY = el.object3D.position.y;
+          const downY = upY - 0.02; // course d’enfoncement
+
+          const press = () => {
+            // anim visuelle
+            el.setAttribute('animation__down', `property: position; to: ${el.object3D.position.x} ${downY} ${el.object3D.position.z}; dur: 80; dir: normal; easing: easeOutQuad;`);
+            el.setAttribute('animation__up',   `property: position; to: ${el.object3D.position.x} ${upY} ${el.object3D.position.z}; dur: 120; delay: 80; dir: normal; easing: easeOutQuad;`);
+            // RESET
+            this.doReset();
+          };
+
+          // Click (desktop) + poke/grab (VR via super-hands : grab-start)
+          el.addEventListener('click', press);
+          el.addEventListener('grab-start', press);
+        },
+        doReset() {
+          // toutes les entités marquées resettable
+          document.querySelectorAll('.resettable').forEach(e => {
+            const c = e.components.resettable;
+            if (c) c.resetNow();
+          });
+        }
+      });
       </script>
+
     </head>
 
     <body>
@@ -93,7 +158,7 @@
         <a-entity light="type: directional; intensity: 1; castShadow: true" position="2 4 -2"></a-entity>
 
         <!-- RIG + caméra + contrôleurs -->
-        <a-entity id="rig" position="0 0.25 0" joystick-movement="speed: 2" snap-turn="angle: 30; cooldown: 300">
+        <a-entity id="rig" position="0 0.2 0" joystick-movement="speed: 2" snap-turn="angle: 30; cooldown: 300">
           <a-entity id="head" camera wasd-controls-enabled="false" look-controls></a-entity>
 
           <!-- Mains : super-hands limité au bouton grip (side) + collision par sphère -->
@@ -183,77 +248,102 @@
                 material="color:#222" static-body="shape: box"></a-box>
         </a-entity>
 
+        <!-- BOUTON RESET flottant, à droite du départ -->
+        <a-entity id="reset-station" position="1.55 0 -0.6">
+          <!-- pied fin -->
+          <a-box position="0 0.15 0" width="0.04" height="0.30" depth="0.04"
+                material="color:#444" static-body="shape: box"></a-box>
+
+          <!-- plateau -->
+          <a-box position="0 0.31 0" width="0.20" height="0.02" depth="0.20"
+                material="color:#2b2b2b" static-body="shape: box"></a-box>
+
+          <!-- bouton enfonçable -->
+          <a-box id="reset-button"
+                class="pressable"
+                position="0 0.33 0"
+                width="0.12" height="0.03" depth="0.12"
+                material="color:#e53935; emissive:#a00000; emissiveIntensity:0.4; metalness:0.2; roughness:0.5"
+                press-button
+                static-body="shape: box">
+          </a-box>
+
+          <!-- étiquette -->
+          <a-entity text="value: RESET; align: center; color: #fff; width: 1.2"
+                    position="0 0.37 0"></a-entity>
+        </a-entity>
+
 
 
         <!-- OBJETS SAISISSABLES (physiques) -->
         <!-- Boule de bowling -->
-        <a-sphere id="ball" class="grabbable" position="0 1.2 -2" radius="0.15" color="#EF2D5E"
+        <a-sphere id="ball" class="grabbable resettable" position="1 1.2 0.24" radius="0.15" color="#EF2D5E"
                   shadow="cast: true; receive: true" opacity="0"
                   grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
-                  dynamic-body="mass: 1.5; shape: sphere">
+                  dynamic-body="mass: 10; shape: sphere">
                   <a-entity id="ballmodel" gltf-model="#bowlingball" position="-0.013 0.014 0.008" scale="0.19 0.19 0.19"></a-entity>
         </a-sphere>
         <!-- Quilles alignées façon bowling (1–2–3–4) -->
         <!-- Quilles bowling resserrées (écart entre lignes réduit) -->
         <a-entity id="pins" rotation="0 0 0" position="0.045 0.3 -1.6">
-          <a-cylinder class="grabbable" position="1.0 0.1 -1.9" radius="0.05" height="0.3" color="#FFC65D"
+          <a-cylinder class="grabbable resettable" position="1.0 0.1 -1.9" radius="0.05" height="0.3" color="#FFC65D"
             shadow="cast: true; receive: true" opacity="0"
             grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
             dynamic-body="mass: 0.75; shape: cylinder">
             <a-entity id="pinmodel" gltf-model="#bowlingpin" position="0 0.04 0" scale="0.13 0.13 0.13"></a-entity>
           </a-cylinder>
 
-          <a-cylinder class="grabbable" position="0.9 0.1 -2.1" radius="0.05" height="0.3" color="#FFC65D"
+          <a-cylinder class="grabbable resettable" position="0.9 0.1 -2.1" radius="0.05" height="0.3" color="#FFC65D"
             shadow="cast: true; receive: true" opacity="0"
             grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
             dynamic-body="mass: 0.75; shape: cylinder">
             <a-entity id="pinmodel" gltf-model="#bowlingpin" position="0 0.04 0" scale="0.13 0.13 0.13"></a-entity>
           </a-cylinder>
-          <a-cylinder class="grabbable" position="1.1 0.1 -2.1" radius="0.05" height="0.3" color="#FFC65D"
-            shadow="cast: true; receive: true" opacity="0"
-            grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
-            dynamic-body="mass: 0.75; shape: cylinder">
-            <a-entity id="pinmodel" gltf-model="#bowlingpin" position="0 0.04 0" scale="0.13 0.13 0.13"></a-entity>
-          </a-cylinder>
-
-          <a-cylinder class="grabbable" position="0.8 0.1 -2.3" radius="0.05" height="0.3" color="#FFC65D"
-            shadow="cast: true; receive: true" opacity="0"
-            grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
-            dynamic-body="mass: 0.75; shape: cylinder">
-            <a-entity id="pinmodel" gltf-model="#bowlingpin" position="0 0.04 0" scale="0.13 0.13 0.13"></a-entity>
-          </a-cylinder>
-          <a-cylinder class="grabbable" position="1.0 0.1 -2.3" radius="0.05" height="0.3" color="#FFC65D"
-            shadow="cast: true; receive: true" opacity="0"
-            grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
-            dynamic-body="mass: 0.75; shape: cylinder">
-            <a-entity id="pinmodel" gltf-model="#bowlingpin" position="0 0.04 0" scale="0.13 0.13 0.13"></a-entity>
-          </a-cylinder>
-          <a-cylinder class="grabbable" position="1.2 0.1 -2.3" radius="0.05" height="0.3" color="#FFC65D"
+          <a-cylinder class="grabbable resettable" position="1.1 0.1 -2.1" radius="0.05" height="0.3" color="#FFC65D"
             shadow="cast: true; receive: true" opacity="0"
             grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
             dynamic-body="mass: 0.75; shape: cylinder">
             <a-entity id="pinmodel" gltf-model="#bowlingpin" position="0 0.04 0" scale="0.13 0.13 0.13"></a-entity>
           </a-cylinder>
 
-          <a-cylinder class="grabbable" position="0.7 0.1 -2.5" radius="0.05" height="0.3" color="#FFC65D"
+          <a-cylinder class="grabbable resettable" position="0.8 0.1 -2.3" radius="0.05" height="0.3" color="#FFC65D"
             shadow="cast: true; receive: true" opacity="0"
             grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
             dynamic-body="mass: 0.75; shape: cylinder">
             <a-entity id="pinmodel" gltf-model="#bowlingpin" position="0 0.04 0" scale="0.13 0.13 0.13"></a-entity>
           </a-cylinder>
-          <a-cylinder class="grabbable" position="0.9 0.1 -2.5" radius="0.05" height="0.3" color="#FFC65D"
+          <a-cylinder class="grabbable resettable" position="1.0 0.1 -2.3" radius="0.05" height="0.3" color="#FFC65D"
             shadow="cast: true; receive: true" opacity="0"
             grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
             dynamic-body="mass: 0.75; shape: cylinder">
             <a-entity id="pinmodel" gltf-model="#bowlingpin" position="0 0.04 0" scale="0.13 0.13 0.13"></a-entity>
           </a-cylinder>
-          <a-cylinder class="grabbable" position="1.1 0.1 -2.5" radius="0.05" height="0.3" color="#FFC65D"
+          <a-cylinder class="grabbable resettable" position="1.2 0.1 -2.3" radius="0.05" height="0.3" color="#FFC65D"
             shadow="cast: true; receive: true" opacity="0"
             grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
             dynamic-body="mass: 0.75; shape: cylinder">
             <a-entity id="pinmodel" gltf-model="#bowlingpin" position="0 0.04 0" scale="0.13 0.13 0.13"></a-entity>
           </a-cylinder>
-          <a-cylinder class="grabbable" position="1.3 0.1 -2.5" radius="0.05" height="0.3" color="#FFC65D"
+
+          <a-cylinder class="grabbable resettable" position="0.7 0.1 -2.5" radius="0.05" height="0.3" color="#FFC65D"
+            shadow="cast: true; receive: true" opacity="0"
+            grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+            dynamic-body="mass: 0.75; shape: cylinder">
+            <a-entity id="pinmodel" gltf-model="#bowlingpin" position="0 0.04 0" scale="0.13 0.13 0.13"></a-entity>
+          </a-cylinder>
+          <a-cylinder class="grabbable resettable" position="0.9 0.1 -2.5" radius="0.05" height="0.3" color="#FFC65D"
+            shadow="cast: true; receive: true" opacity="0"
+            grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+            dynamic-body="mass: 0.75; shape: cylinder">
+            <a-entity id="pinmodel" gltf-model="#bowlingpin" position="0 0.04 0" scale="0.13 0.13 0.13"></a-entity>
+          </a-cylinder>
+          <a-cylinder class="grabbable resettable" position="1.1 0.1 -2.5" radius="0.05" height="0.3" color="#FFC65D"
+            shadow="cast: true; receive: true" opacity="0"
+            grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+            dynamic-body="mass: 0.75; shape: cylinder">
+            <a-entity id="pinmodel" gltf-model="#bowlingpin" position="0 0.04 0" scale="0.13 0.13 0.13"></a-entity>
+          </a-cylinder>
+          <a-cylinder class="grabbable resettable" position="1.3 0.1 -2.5" radius="0.05" height="0.3" color="#FFC65D"
             shadow="cast: true; receive: true" opacity="0"
             grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
             dynamic-body="mass: 0.75; shape: cylinder">
