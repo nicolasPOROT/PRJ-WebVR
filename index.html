@@ -104,35 +104,41 @@
           }, {once:true});
         }
       });
-
-      /** Bouton enfonçable qui émet l'événement reset */
       AFRAME.registerComponent('press-button', {
-        schema: { target: {type: 'selector'} },
-        init() {
-          const el = this.el;
-          const upY = el.object3D.position.y;
-          const downY = upY - 0.02; // course d’enfoncement
+          schema: { cooldown: {type: 'number', default: 400} },
+          init() {
+            const el = this.el;
+            const pos = el.object3D.position;
+            this.upY = pos.y;
+            this.downY = this.upY - 0.02;
+            this.last = 0;
 
-          const press = () => {
-            // anim visuelle
-            el.setAttribute('animation__down', `property: position; to: ${el.object3D.position.x} ${downY} ${el.object3D.position.z}; dur: 80; dir: normal; easing: easeOutQuad;`);
-            el.setAttribute('animation__up',   `property: position; to: ${el.object3D.position.x} ${upY} ${el.object3D.position.z}; dur: 120; delay: 80; dir: normal; easing: easeOutQuad;`);
-            // RESET
-            this.doReset();
-          };
+            const pressDown = () => {
+              el.setAttribute('animation__down', `property: position; to: ${pos.x} ${this.downY} ${pos.z}; dur: 70; easing: easeOutQuad;`);
+            };
+            const releaseUp = () => {
+              el.setAttribute('animation__up', `property: position; to: ${pos.x} ${this.upY} ${pos.z}; dur: 120; easing: easeOutQuad;`);
+            };
 
-          // Click (desktop) + poke/grab (VR via super-hands : grab-start)
-          el.addEventListener('click', press);
-          el.addEventListener('grab-start', press);
-        },
-        doReset() {
-          // toutes les entités marquées resettable
-          document.querySelectorAll('.resettable').forEach(e => {
-            const c = e.components.resettable;
-            if (c) c.resetNow();
-          });
-        }
-      });
+            const doReset = () => {
+              const now = Date.now();
+              if (now - this.last < this.data.cooldown) return; // anti spam
+              this.last = now;
+              document.querySelectorAll('.resettable').forEach(e => {
+                const c = e.components.resettable;
+                if (c) c.resetNow();
+              });
+            };
+
+            // Pose la main → enfonce + reset
+            el.addEventListener('hover-start', () => { pressDown(); doReset(); });
+            // Retire la main → remonte
+            el.addEventListener('hover-end',   () => { releaseUp(); });
+
+            // fallback souris
+            el.addEventListener('click', () => { pressDown(); doReset(); setTimeout(releaseUp, 120); });
+          }
+        });
       </script>
 
     </head>
@@ -165,14 +171,14 @@
           <a-entity id="leftHand"
             oculus-touch-controls="hand: left"
             super-hands="grabStartButtons: gripdown, squeezestart; grabEndButtons: gripup, squeezeend"
-            sphere-collider="objects: .grabbable"
+            sphere-collider="objects: .grabbable, .hoverable, .pressable"
             static-body="shape: sphere; sphereRadius: 0.03">
           </a-entity>
 
           <a-entity id="rightHand"
             oculus-touch-controls="hand: right"
             super-hands="grabStartButtons: gripdown, squeezestart; grabEndButtons: gripup, squeezeend"
-            sphere-collider="objects: .grabbable"
+            sphere-collider="objects: .grabbable, .hoverable, .pressable"
             static-body="shape: sphere; sphereRadius: 0.03">
           </a-entity>
         </a-entity>
@@ -260,7 +266,7 @@
 
           <!-- bouton enfonçable -->
           <a-box id="reset-button"
-                class="pressable"
+                class="hoverable pressable"
                 position="0 0.33 0"
                 width="0.12" height="0.03" depth="0.12"
                 material="color:#e53935; emissive:#a00000; emissiveIntensity:0.4; metalness:0.2; roughness:0.5"
