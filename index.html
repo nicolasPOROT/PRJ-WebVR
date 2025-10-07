@@ -112,6 +112,8 @@
             static-body="shape: sphere; sphereRadius: 0.03">
           </a-entity>
         </a-entity>
+
+        <a-entity id="scenemodel" gltf-model="#bowlingscene" position="0 0.3 1" scale="0.24 0.24 0.24"></a-entity>
         
         <!-- OBJETS SAISISSABLES (physiques) -->
 
@@ -184,7 +186,7 @@
         </a-cylinder>
 
         <!-- Sol -->
-        <a-plane position="0 0 -1" rotation="-90 0 0" width="100" height="100" src="#groundTexture" opacity="1"
+        <a-plane position="0 0 -1" rotation="-90 0 0" width="100" height="100" opacity="0"
                 shadow="cast: false; receive: true"
                 static-body>
         </a-plane>
