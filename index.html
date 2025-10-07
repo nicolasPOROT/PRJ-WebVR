@@ -84,7 +84,6 @@
         <a-assets>
           <img id="skyTexture" src="./assets/skynet.png" />
           <img id="groundTexture" src="./assets/grass.jpg" />
-          <a-asset-item id="bowlingscene" src="assets/VR_Bowling_building.glb"></a-asset-item>
           <a-asset-item id="bowlingball" src="assets/VR_Bowling_ball.glb"></a-asset-item>
           <a-asset-item id="bowlingpin" src="assets/VR_Bowling_pin.glb"></a-asset-item>
         </a-assets>
@@ -113,91 +112,161 @@
           </a-entity>
         </a-entity>
 
-        <a-entity id="scenemodel" gltf-model="#bowlingscene" position="0 0.3 1" scale="0.24 0.24 0.24"></a-entity>
-        
-        <!-- OBJETS SAISISSABLES (physiques) -->
+        <!-- GROUPE : piste de bowling (version full <a-box>) + extension -->
+        <a-entity id="bowling-lane" position="1 0 0">
 
-        <a-sphere class="grabbable" position="0 1.2 -2" radius="0.15" color="#EF2D5E"
-                  shadow="cast: true; receive: true" opacity="0"
-                  grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
-                  dynamic-body="mass: 1.5; shape: sphere">
-                  <a-entity id="ballmodel" gltf-model="#bowlingball" position="-0.013 0.014 0.008" scale="0.19 0.19 0.19"></a-entity>
-        </a-sphere>
-        <!-- Quilles alignées façon bowling (1–2–3–4) -->
-        <!-- Quilles bowling resserrées (écart entre lignes réduit) -->
-        <a-entity id="pins" rotation="0 90 0" position="-19.740 0 -0.900">
-        <a-cylinder class="grabbable" position="1.0 0.1 -1.9" radius="0.05" height="0.3" color="#FFC65D"
-          shadow="cast: true; receive: true" opacity="0"
-          grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
-          dynamic-body="mass: 0.75; shape: cylinder">
-          <a-entity id="pinmodel" gltf-model="#bowlingpin" position="0 0.04 0" scale="0.13 0.13 0.13"></a-entity>
-        </a-cylinder>
+          <!-- Approche (zone de départ) -->
+          <a-box position="0 0.01 -0.6" width="1.066" height="0.02" depth="1.2"
+                material="color:#c89c6c; metalness:0.2; roughness:0.7"
+                static-body="shape: box"></a-box>
 
-        <a-cylinder class="grabbable" position="0.9 0.1 -2.1" radius="0.05" height="0.3" color="#FFC65D"
-          shadow="cast: true; receive: true" opacity="0"
-          grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
-          dynamic-body="mass: 0.75; shape: cylinder">
-          <a-entity id="pinmodel" gltf-model="#bowlingpin" position="0 0.04 0" scale="0.13 0.13 0.13"></a-entity>
-        </a-cylinder>
-        <a-cylinder class="grabbable" position="1.1 0.1 -2.1" radius="0.05" height="0.3" color="#FFC65D"
-          shadow="cast: true; receive: true" opacity="0"
-          grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
-          dynamic-body="mass: 0.75; shape: cylinder">
-          <a-entity id="pinmodel" gltf-model="#bowlingpin" position="0 0.04 0" scale="0.13 0.13 0.13"></a-entity>
-        </a-cylinder>
+          <!-- Ligne de faute -->
+          <a-box position="0 0.011 -1.2" width="1.066" height="0.002" depth="0.02"
+                material="color:#ffffff" static-body="shape: box"></a-box>
 
-        <a-cylinder class="grabbable" position="0.8 0.1 -2.3" radius="0.05" height="0.3" color="#FFC65D"
-          shadow="cast: true; receive: true" opacity="0"
-          grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
-          dynamic-body="mass: 0.75; shape: cylinder">
-          <a-entity id="pinmodel" gltf-model="#bowlingpin" position="0 0.04 0" scale="0.13 0.13 0.13"></a-entity>
-        </a-cylinder>
-        <a-cylinder class="grabbable" position="1.0 0.1 -2.3" radius="0.05" height="0.3" color="#FFC65D"
-          shadow="cast: true; receive: true" opacity="0"
-          grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
-          dynamic-body="mass: 0.75; shape: cylinder">
-          <a-entity id="pinmodel" gltf-model="#bowlingpin" position="0 0.04 0" scale="0.13 0.13 0.13"></a-entity>
-        </a-cylinder>
-        <a-cylinder class="grabbable" position="1.2 0.1 -2.3" radius="0.05" height="0.3" color="#FFC65D"
-          shadow="cast: true; receive: true" opacity="0"
-          grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
-          dynamic-body="mass: 0.75; shape: cylinder">
-          <a-entity id="pinmodel" gltf-model="#bowlingpin" position="0 0.04 0" scale="0.13 0.13 0.13"></a-entity>
-        </a-cylinder>
+          <!-- Piste (segment 1) -->
+          <a-box position="0 0.01 -2.1" width="1.066" height="0.02" depth="2.0"
+                material="color:#b38354; metalness:0.2; roughness:0.6"
+                static-body="shape: box"></a-box>
 
-        <a-cylinder class="grabbable" position="0.7 0.1 -2.5" radius="0.05" height="0.3" color="#FFC65D"
-          shadow="cast: true; receive: true" opacity="0"
-          grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
-          dynamic-body="mass: 0.75; shape: cylinder">
-          <a-entity id="pinmodel" gltf-model="#bowlingpin" position="0 0.04 0" scale="0.13 0.13 0.13"></a-entity>
-        </a-cylinder>
-        <a-cylinder class="grabbable" position="0.9 0.1 -2.5" radius="0.05" height="0.3" color="#FFC65D"
-          shadow="cast: true; receive: true" opacity="0"
-          grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
-          dynamic-body="mass: 0.75; shape: cylinder">
-          <a-entity id="pinmodel" gltf-model="#bowlingpin" position="0 0.04 0" scale="0.13 0.13 0.13"></a-entity>
-        </a-cylinder>
-        <a-cylinder class="grabbable" position="1.1 0.1 -2.5" radius="0.05" height="0.3" color="#FFC65D"
-          shadow="cast: true; receive: true" opacity="0"
-          grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
-          dynamic-body="mass: 0.75; shape: cylinder">
-          <a-entity id="pinmodel" gltf-model="#bowlingpin" position="0 0.04 0" scale="0.13 0.13 0.13"></a-entity>
-        </a-cylinder>
-        <a-cylinder class="grabbable" position="1.3 0.1 -2.5" radius="0.05" height="0.3" color="#FFC65D"
-          shadow="cast: true; receive: true" opacity="0"
-          grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
-          dynamic-body="mass: 0.75; shape: cylinder">
-          <a-entity id="pinmodel" gltf-model="#bowlingpin" position="0 0.04 0" scale="0.13 0.13 0.13"></a-entity>
-        </a-cylinder>
+          <!-- Piste (segment 2 – extension) -->
+          <!-- L’extension commence juste après le segment 1 : span [-3.9 ; -3.1] -->
+          <a-box position="0 0.01 -3.5" width="1.066" height="0.02" depth="0.8"
+                material="color:#b38354; metalness:0.2; roughness:0.6"
+                static-body="shape: box"></a-box>
+
+          <!-- Pin deck (reculé derrière l’extension) -->
+          <!-- depth=0.6 => span [-4.3 ; -3.7] -->
+          <a-box position="0 0.01 -4.0" width="1.066" height="0.02" depth="0.6"
+                material="color:#a87447; metalness:0.2; roughness:0.6"
+                static-body="shape: box"></a-box>
+
+          <!-- Gouttières (allongées jusqu’au fond) -->
+          <!-- On couvre approximativement de -0.6 à -4.3 => centre -2.45, depth 3.7 -->
+          <a-box position="-0.68 -0.04 -2.45" width="0.28" height="0.02" depth="3.7"
+                material="color:#6b6b6b; roughness:0.9"
+                static-body="shape: box"></a-box>
+          <a-box position="0.68 -0.04 -2.45" width="0.28" height="0.02" depth="3.7"
+                material="color:#6b6b6b; roughness:0.9"
+                static-body="shape: box"></a-box>
+
+          <!-- Bordures (rails) allongées pareil que les gouttières -->
+          <a-box position="-0.82 0.12 -2.45" width="0.04" height="0.24" depth="3.7"
+                material="color:#444" static-body="shape: box"></a-box>
+          <a-box position="0.82 0.12 -2.45" width="0.04" height="0.24" depth="3.7"
+                material="color:#444" static-body="shape: box"></a-box>
+
+          <!-- Repères (points) -->
+          <a-box position="-0.3 0.02 -1.8" width="0.02" height="0.004" depth="0.02"
+                material="color:#fff; emissive:#fff; emissiveIntensity:0.6; roughness:0.2; metalness:0"
+                shadow="receive: false; cast: false"></a-box>
+          <a-box position="0 0.02 -1.8" width="0.02" height="0.004" depth="0.02"
+                material="color:#fff; emissive:#fff; emissiveIntensity:0.6; roughness:0.2; metalness:0"
+                shadow="receive: false; cast: false"></a-box>
+          <a-box position="0.3 0.02 -1.8" width="0.02" height="0.004" depth="0.02"
+                material="color:#fff; emissive:#fff; emissiveIntensity:0.6; roughness:0.2; metalness:0"
+                shadow="receive: false; cast: false"></a-box>
+
+          <!-- Flèches (posées sur la piste) -->
+          <a-box position="-0.25 0.02 -1.6" width="0.06" height="0.004" depth="0.03"
+                material="color:#fff; emissive:#fff; emissiveIntensity:0.6"
+                shadow="receive: false; cast: false"></a-box>
+          <a-box position="0 0.02 -1.6" width="0.06" height="0.004" depth="0.03"
+                material="color:#fff; emissive:#fff; emissiveIntensity:0.6"
+                shadow="receive: false; cast: false"></a-box>
+          <a-box position="0.25 0.02 -1.6" width="0.06" height="0.004" depth="0.03"
+                material="color:#fff; emissive:#fff; emissiveIntensity:0.6"
+                shadow="receive: false; cast: false"></a-box>
+
+          <!-- Mur de fond (reculé) -->
+          <a-box position="0 0.5 -4.55" width="1.2" height="1.0" depth="0.05"
+                material="color:#222" static-body="shape: box"></a-box>
         </a-entity>
 
 
 
-        <!-- Sol -->
-        <a-plane position="0 -0.12 -1" rotation="-90 0 0" width="100" height="100" opacity="0"
+        <!-- OBJETS SAISISSABLES (physiques) -->
+        <!-- Boule de bowling -->
+        <a-sphere id="ball" class="grabbable" position="0 1.2 -2" radius="0.15" color="#EF2D5E"
+                  shadow="cast: true; receive: true" opacity="0"
+                  grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+                  dynamic-body="mass: 1.5; shape: sphere; sphereRadius: 0.05">
+                  <a-entity id="ballmodel" gltf-model="#bowlingball" position="-0.013 0.014 0.008" scale="0.19 0.19 0.19"></a-entity>
+        </a-sphere>
+        <!-- Quilles alignées façon bowling (1–2–3–4) -->
+        <!-- Quilles bowling resserrées (écart entre lignes réduit) -->
+        <a-entity id="pins" rotation="0 0 0" position="0.045 0.3 -1.6">
+          <a-cylinder class="grabbable" position="1.0 0.1 -1.9" radius="0.05" height="0.3" color="#FFC65D"
+            shadow="cast: true; receive: true" opacity="0"
+            grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+            dynamic-body="mass: 0.75; shape: cylinder">
+            <a-entity id="pinmodel" gltf-model="#bowlingpin" position="0 0.04 0" scale="0.13 0.13 0.13"></a-entity>
+          </a-cylinder>
+
+          <a-cylinder class="grabbable" position="0.9 0.1 -2.1" radius="0.05" height="0.3" color="#FFC65D"
+            shadow="cast: true; receive: true" opacity="0"
+            grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+            dynamic-body="mass: 0.75; shape: cylinder">
+            <a-entity id="pinmodel" gltf-model="#bowlingpin" position="0 0.04 0" scale="0.13 0.13 0.13"></a-entity>
+          </a-cylinder>
+          <a-cylinder class="grabbable" position="1.1 0.1 -2.1" radius="0.05" height="0.3" color="#FFC65D"
+            shadow="cast: true; receive: true" opacity="0"
+            grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+            dynamic-body="mass: 0.75; shape: cylinder">
+            <a-entity id="pinmodel" gltf-model="#bowlingpin" position="0 0.04 0" scale="0.13 0.13 0.13"></a-entity>
+          </a-cylinder>
+
+          <a-cylinder class="grabbable" position="0.8 0.1 -2.3" radius="0.05" height="0.3" color="#FFC65D"
+            shadow="cast: true; receive: true" opacity="0"
+            grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+            dynamic-body="mass: 0.75; shape: cylinder">
+            <a-entity id="pinmodel" gltf-model="#bowlingpin" position="0 0.04 0" scale="0.13 0.13 0.13"></a-entity>
+          </a-cylinder>
+          <a-cylinder class="grabbable" position="1.0 0.1 -2.3" radius="0.05" height="0.3" color="#FFC65D"
+            shadow="cast: true; receive: true" opacity="0"
+            grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+            dynamic-body="mass: 0.75; shape: cylinder">
+            <a-entity id="pinmodel" gltf-model="#bowlingpin" position="0 0.04 0" scale="0.13 0.13 0.13"></a-entity>
+          </a-cylinder>
+          <a-cylinder class="grabbable" position="1.2 0.1 -2.3" radius="0.05" height="0.3" color="#FFC65D"
+            shadow="cast: true; receive: true" opacity="0"
+            grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+            dynamic-body="mass: 0.75; shape: cylinder">
+            <a-entity id="pinmodel" gltf-model="#bowlingpin" position="0 0.04 0" scale="0.13 0.13 0.13"></a-entity>
+          </a-cylinder>
+
+          <a-cylinder class="grabbable" position="0.7 0.1 -2.5" radius="0.05" height="0.3" color="#FFC65D"
+            shadow="cast: true; receive: true" opacity="0"
+            grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+            dynamic-body="mass: 0.75; shape: cylinder">
+            <a-entity id="pinmodel" gltf-model="#bowlingpin" position="0 0.04 0" scale="0.13 0.13 0.13"></a-entity>
+          </a-cylinder>
+          <a-cylinder class="grabbable" position="0.9 0.1 -2.5" radius="0.05" height="0.3" color="#FFC65D"
+            shadow="cast: true; receive: true" opacity="0"
+            grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+            dynamic-body="mass: 0.75; shape: cylinder">
+            <a-entity id="pinmodel" gltf-model="#bowlingpin" position="0 0.04 0" scale="0.13 0.13 0.13"></a-entity>
+          </a-cylinder>
+          <a-cylinder class="grabbable" position="1.1 0.1 -2.5" radius="0.05" height="0.3" color="#FFC65D"
+            shadow="cast: true; receive: true" opacity="0"
+            grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+            dynamic-body="mass: 0.75; shape: cylinder">
+            <a-entity id="pinmodel" gltf-model="#bowlingpin" position="0 0.04 0" scale="0.13 0.13 0.13"></a-entity>
+          </a-cylinder>
+          <a-cylinder class="grabbable" position="1.3 0.1 -2.5" radius="0.05" height="0.3" color="#FFC65D"
+            shadow="cast: true; receive: true" opacity="0"
+            grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+            dynamic-body="mass: 0.75; shape: cylinder">
+            <a-entity id="pinmodel" gltf-model="#bowlingpin" position="0 0.04 0" scale="0.13 0.13 0.13"></a-entity>
+          </a-cylinder>
+        </a-entity>
+
+
+
+       <!-- SOL : à y = 0 (garde shape: plane) -->
+        <a-plane position="0 -0.1 -1" rotation="-90 0 0" width="100" height="100" opacity="1"
                 shadow="cast: false; receive: true"
-                static-body>
-        </a-plane>
+                static-body="shape: plane"></a-plane>
 
         <a-sky src="#skyTexture"></a-sky>
       </a-scene>
