@@ -138,19 +138,20 @@
           el.setAttribute('animation__up',
             `property: position; to: ${base.x} ${this.upY} ${base.z}; dur: 120; easing: easeOutQuad; startEvents: goUp; dir: normal`);
 
-          const doReset = () => {
+          const doHardReset = () => {
             const now = Date.now();
             if (now - this.last < this.data.cooldown) return;
             this.last = now;
 
+            // 1) reset TOUT ce qui est resettable (balle + quilles…)
             document.querySelectorAll('[resettable]').forEach(e => e.components.resettable?.resetNow());
-            // ➜ avertir les systèmes (score, etc.)
-            this.el.sceneEl.emit('reset-all');
+            // 2) prévenir le scorekeeper qu'on veut un "vrai" reset d'état (frame=1, roll=1…)
+            this.el.sceneEl.emit('hard-reset');
           };
 
-          el.addEventListener('hover-start', () => { el.emit('goDown'); doReset(); });
+          el.addEventListener('hover-start', () => { el.emit('goDown'); doHardReset(); });
           el.addEventListener('hover-end',   () => { el.emit('goUp'); });
-          el.addEventListener('click',       () => { el.emit('goDown'); doReset(); setTimeout(() => el.emit('goUp'), 120); });
+          el.addEventListener('click',       () => { el.emit('goDown'); doHardReset(); setTimeout(() => el.emit('goUp'), 120); });
         }
       });
 
@@ -159,11 +160,12 @@
           ball:   {type: 'selector', default: '#ball'},
           pins:   {type: 'selector', default: '#pins'},
           board:  {type: 'selector', default: '#score-text'},
-          settleMs:   {type: 'int', default: 2500},
-          tiltDeg:    {type: 'number', default: 25},
-          speedThresh:{type: 'number', default: 0.05},
-          maxFrames:  {type: 'int', default: 10},
-          ballReturnMs:{type: 'int', default: 1800}   // ⬅️ délai avant retour auto de la balle pour le 2e lancer
+          settleMs:    {type: 'int',    default: 2500},
+          tiltDeg:     {type: 'number', default: 25},
+          speedThresh: {type: 'number', default: 0.05},
+          maxFrames:   {type: 'int',    default: 10},
+          ballReturnMs:{type: 'int',    default: 1800}, // retour auto pour 2e lancer
+          nextFrameMs: {type: 'int',    default: 2000}  // ⬅️ délai avant passage auto à la frame suivante
         },
 
         init() {
@@ -172,19 +174,22 @@
           this.fallenSet = new Set();
           this.frameComplete = false;
 
-          this.timer = null;          // timer “settle” (fin de lancer)
-          this.ballTimer = null;      // ⬅️ nouveau : timer de retour de balle
+          this.timer = null;         // settle timer fin de lancer
+          this.ballTimer = null;     // retour auto balle
+          this.nextFrameTimer = null;// ⬅️ timer passage frame auto
           this.awaitingSettle = false;
 
           this.pinEls = Array.from(this.data.pins.querySelectorAll('a-cylinder'));
           this.pinEls.forEach((p, i) => { if (!p.dataset.idx) p.dataset.idx = String(i+1); });
 
+          // balle touche une quille -> timer de settle
           this.onBallCollide = (e) => {
             const other = e.detail?.body?.el;
             if (other && this.pinEls.includes(other)) this.armSettleTimer();
           };
           this.data.ball.addEventListener('collide', this.onBallCollide);
 
+          // si la balle ne bouge quasi plus, évaluer maintenant
           this.tick = () => {
             if (!this.awaitingSettle) return;
             const v = this.data.ball.body?.velocity;
@@ -194,40 +199,31 @@
             }
           };
 
-          this.onResetAll = () => {
-            this.clearTimer();
-            this.clearBallTimer();   // ⬅️ annule le retour auto si RESET manuel
-            this.awaitingSettle = false;
-            // passer à la frame suivante quoi qu'il arrive (simple)
-            this.advanceFrame();
-          };
-          this.el.sceneEl.addEventListener('reset-all', this.onResetAll);
+          // HARD RESET (bouton) : tout l'état repart à zéro (comme refresh)
+          this.onHardReset = () => { this.fullResetState(); };
+          this.el.sceneEl.addEventListener('hard-reset', this.onHardReset);
 
           this.updateBoard({thisRoll: 0, totalDown: 0, tag: ''});
         },
 
         remove() {
           this.data.ball.removeEventListener('collide', this.onBallCollide);
-          this.el.sceneEl.removeEventListener('reset-all', this.onResetAll);
+          this.el.sceneEl.removeEventListener('hard-reset', this.onHardReset);
           this.clearTimer();
           this.clearBallTimer();
+          this.clearNextFrameTimer();
         },
 
-        // ---- utilitaires timers
+        // ---- timers
         armSettleTimer() {
           this.clearTimer();
           if (this.frameComplete) return;
           this.awaitingSettle = true;
           this.timer = setTimeout(() => this.evaluateNow(), this.data.settleMs);
         },
-        clearTimer() {
-          if (this.timer) clearTimeout(this.timer);
-          this.timer = null;
-        },
-        clearBallTimer() {                 // ⬅️ nouveau
-          if (this.ballTimer) clearTimeout(this.ballTimer);
-          this.ballTimer = null;
-        },
+        clearTimer()       { if (this.timer) clearTimeout(this.timer); this.timer = null; },
+        clearBallTimer()   { if (this.ballTimer) clearTimeout(this.ballTimer); this.ballTimer = null; },
+        clearNextFrameTimer(){ if (this.nextFrameTimer) clearTimeout(this.nextFrameTimer); this.nextFrameTimer = null; },
 
         // ---- posture
         isUpright(pinEl) {
@@ -256,24 +252,26 @@
           if (this.roll === 2 && totalDown === 10) tag = 'SPARE!';
           this.updateBoard({thisRoll: thisRollKnocked, totalDown, tag});
 
-          // persister tombées
+          // persiste tombées
           downSetNow.forEach(p => this.fallenSet.add(p));
 
-          // avancer l’état
+          // avance d'état + automatisme
           if (this.roll === 1) {
             if (totalDown === 10) {
-              // STRIKE : frame finie -> attendre RESET
+              // STRIKE -> frame finie -> passage auto à la frame suivante
               this.frameComplete = true;
               this.clearBallTimer();
+              this.scheduleNextFrame();
             } else {
-              // passer au 2e lancer + programmer retour auto de la balle
+              // on passe au 2e lancer + retour automatique de la balle
               this.roll = 2;
-              this.scheduleBallReturn();   // ⬅️ nouveau
+              this.scheduleBallReturn();
             }
           } else {
-            // fin du 2e lancer -> frame finie
+            // fin du 2e lancer -> frame finie -> passage auto
             this.frameComplete = true;
             this.clearBallTimer();
+            this.scheduleNextFrame();
           }
         },
 
@@ -281,28 +279,51 @@
         scheduleBallReturn() {
           this.clearBallTimer();
           this.ballTimer = setTimeout(() => {
-            // si entre-temps la frame a été finie (ex: RESET manuel), ne rien faire
             if (this.frameComplete || this.roll !== 2) return;
-            // reset uniquement la balle (elle doit avoir l’attribut resettable)
             this.data.ball.components.resettable?.resetNow();
           }, this.data.ballReturnMs);
         },
 
-        // affichage
+        // ---- passage auto à la frame suivante : reset objets puis avancer frame
+        scheduleNextFrame() {
+          this.clearNextFrameTimer();
+          this.nextFrameTimer = setTimeout(() => {
+            // 1) reset objets (balle + quilles…)
+            document.querySelectorAll('[resettable]').forEach(e => e.components.resettable?.resetNow());
+            // 2) avancer la frame (réinitialise l’état de frame)
+            this.advanceFrame();
+          }, this.data.nextFrameMs);
+        },
+
+        // ---- affichage
         updateBoard({thisRoll, totalDown, tag}) {
-          const left = `Tour: ${this.frame} Lancer: ${this.roll}`;
+          const left = `Tour: ${this.frame}  Lancer: ${this.roll}`;
           const right = `+${thisRoll} (total ${totalDown}/10)`;
           const extra = tag ? `  ${tag}` : '';
           this.data.board.setAttribute('text', 'value', `${left} —\n ${right}${extra}`);
         },
 
-        // nouvelle frame (appelé sur reset-all)
+        // ---- avance d'une frame (appelé par scheduleNextFrame)
         advanceFrame() {
           this.fallenSet.clear();
           this.frameComplete = false;
           this.roll = 1;
           this.frame += 1;
           if (this.frame > this.data.maxFrames) this.frame = 1;
+          this.updateBoard({thisRoll: 0, totalDown: 0, tag: ''});
+        },
+
+        // ---- hard reset (remise à zéro complète de la partie)
+        fullResetState() {
+          this.clearTimer();
+          this.clearBallTimer();
+          this.clearNextFrameTimer();
+          this.awaitingSettle = false;
+
+          this.fallenSet.clear();
+          this.frameComplete = false;
+          this.frame = 1;
+          this.roll  = 1;
           this.updateBoard({thisRoll: 0, totalDown: 0, tag: ''});
         }
       });
@@ -419,7 +440,7 @@
 
           <!-- Mur de fond (reculé) -->
           <a-box position="0 0.5 -5.5" width="1.2" height="1.0" depth="0.05"
-                material="color:#222" static-body="shape: box"></a-box>
+                material="color:#222"></a-box>
         </a-entity>
 
         <!-- BOUTON RESET flottant, à droite du départ -->
