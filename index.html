@@ -157,7 +157,7 @@
 
       AFRAME.registerComponent('score-keeper', {
         schema: {
-          ball:   {type: 'selector', default: '.bowling-ball'},
+          balls:   {type: 'selectorAll', default: '.bowling-ball'},
           pins:   {type: 'selector', default: '#pins'},
           board:  {type: 'selector', default: '#score-text'},
           settleMs:    {type: 'int',    default: 2500},
@@ -405,7 +405,7 @@
         vr-mode-ui="enabled: true"
         device-orientation-permission-ui="enabled: true"
         physics="gravity: -9.8; debug: false"
-        score-keeper="ball: .bowling-ball; pins: #pins; board: #score-text; settleMs: 2500; tiltDeg: 25">
+        score-keeper="balls: .bowling-ball; pins: #pins; board: #score-text; settleMs: 2500; tiltDeg: 25">
         <!-- Assets -->
         <a-assets>
           <img id="skyTexture" src="./assets/skynet.png" />
@@ -618,6 +618,13 @@
             <a-entity text="value: Balle difficile; align: center; color: #0f0; width: 1.4"
                       position="0 0 0.01"></a-entity>
           </a-entity>
+        </a-entity>
+
+        <!-- Disclaimer de prendre qu'une seule balle à la fois -->
+        <a-entity position="-0.413 0.976 0.983" rotation="0 90 0">
+          <a-plane width="1.4" height="0.2" color="#222" opacity="0.8"></a-plane>
+          <a-entity text="value: Prenez une seule balle à la fois!; align: center; color: #f00; width: 2"
+                    position="0 0 0.01"></a-entity>
         </a-entity>
 
         <!-- OBJETS SAISISSABLES (physiques) -->
