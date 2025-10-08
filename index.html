@@ -128,12 +128,11 @@
         schema: { cooldown: {type: 'number', default: 400} },
         init() {
           const el = this.el;
-          const base = el.object3D.position.clone();   // position initiale figée
+          const base = el.object3D.position.clone();
           this.upY   = base.y;
           this.downY = this.upY - 0.02;
           this.last  = 0;
 
-          // Déclarer les animations UNE FOIS, déclenchées par des events
           el.setAttribute('animation__down',
             `property: position; to: ${base.x} ${this.downY} ${base.z}; dur: 70; easing: easeOutQuad; startEvents: goDown; dir: normal`);
           el.setAttribute('animation__up',
@@ -141,20 +140,105 @@
 
           const doReset = () => {
             const now = Date.now();
-            if (now - this.last < this.data.cooldown) return; // anti-spam
+            if (now - this.last < this.data.cooldown) return;
             this.last = now;
+
             document.querySelectorAll('[resettable]').forEach(e => e.components.resettable?.resetNow());
+            // ➜ avertir les systèmes (score, etc.)
+            this.el.sceneEl.emit('reset-all');
           };
 
-          // Pose la main → enfonce + reset ; retire la main → remonte
           el.addEventListener('hover-start', () => { el.emit('goDown'); doReset(); });
           el.addEventListener('hover-end',   () => { el.emit('goUp'); });
-
-          // fallback souris
-          el.addEventListener('click', () => { el.emit('goDown'); doReset(); setTimeout(() => el.emit('goUp'), 120); });
+          el.addEventListener('click',       () => { el.emit('goDown'); doReset(); setTimeout(() => el.emit('goUp'), 120); });
         }
       });
-    </script>
+
+      AFRAME.registerComponent('score-keeper', {
+        schema: {
+          ball:   {type: 'selector', default: '#ball'},
+          pins:   {type: 'selector', default: '#pins'},
+          board:  {type: 'selector', default: '#score-text'},
+          settleMs:   {type: 'int', default: 2500},   // temps d’attente après dernier choc
+          tiltDeg:    {type: 'number', default: 25},  // angle seuil pour “tombée”
+          speedThresh:{type: 'number', default: 0.05} // m/s, si la balle est quasi immobile on peut scorer plus tôt
+        },
+
+        init() {
+          this.timer = null;
+          this.awaitingSettle = false;
+
+          // Récupère les quilles (enfants direct de #pins)
+          this.pinEls = Array.from(this.data.pins.querySelectorAll('a-cylinder'));
+
+          // Écoute les collisions de la balle : si elle cogne une quille, on arme le timer
+          this.onBallCollide = (e) => {
+            const other = e.detail?.body?.el;
+            if (!other) return;
+            if (this.pinEls.includes(other)) this.armSettleTimer();
+          };
+          this.data.ball.addEventListener('collide', this.onBallCollide);
+
+          // Tick optionnel : si la balle est quasiment à l’arrêt et qu’on attend déjà, on score tout de suite
+          this.tick = () => {
+            if (!this.awaitingSettle) return;
+            const v = this.data.ball.body?.velocity;
+            if (v) {
+              const speed = Math.hypot(v.x, v.y, v.z);
+              if (speed < this.data.speedThresh) this.evaluateNow();
+            }
+          };
+
+          // Reset global (depuis le bouton)
+          this.el.sceneEl.addEventListener('reset-all', () => this.resetScore());
+        },
+
+        remove() {
+          this.data.ball.removeEventListener('collide', this.onBallCollide);
+          this.clearTimer();
+        },
+
+        armSettleTimer() {
+          this.clearTimer();
+          this.awaitingSettle = true;
+          this.timer = setTimeout(() => this.evaluateNow(), this.data.settleMs);
+        },
+
+        clearTimer() {
+          if (this.timer) clearTimeout(this.timer);
+          this.timer = null;
+        },
+
+        // Calcule l’angle entre l’axe Y monde et l’axe Y de la quille
+        isUpright(pinEl) {
+          const q = new THREE.Quaternion();
+          pinEl.object3D.getWorldQuaternion(q);
+          const up = new THREE.Vector3(0,1,0).applyQuaternion(q);
+          const angle = up.angleTo(new THREE.Vector3(0,1,0)); // radians
+          const deg = THREE.MathUtils.radToDeg(angle);
+          return deg < this.data.tiltDeg;
+        },
+
+        evaluateNow() {
+          this.clearTimer();
+          this.awaitingSettle = false;
+
+          const fallen = this.pinEls.filter(p => !this.isUpright(p)).length;
+          this.setScore(fallen);
+        },
+
+        setScore(n) {
+          this.data.board.setAttribute('text', 'value', `Score: ${n}`);
+        },
+
+        resetScore() {
+          this.clearTimer();
+          this.awaitingSettle = false;
+          this.setScore(0);
+        }
+      });
+
+      </script>
 
     </head>
 
@@ -165,7 +249,7 @@
         vr-mode-ui="enabled: true"
         device-orientation-permission-ui="enabled: true"
         physics="gravity: -9.8; debug: false"
-      >
+        score-keeper="ball: #ball; pins: #pins; board: #score-text; settleMs: 2500; tiltDeg: 25">
         <!-- Assets -->
         <a-assets>
           <img id="skyTexture" src="./assets/skynet.png" />
@@ -295,7 +379,12 @@
                     position="0 0.67 0"></a-entity>
         </a-entity>
 
-
+        <!-- Score -->
+        <a-entity id="score-board" position="1.5 1 -1.5" rotation="0 -30 0">
+          <a-plane width="0.4" height="0.2" color="#222" opacity="0.8"></a-plane>
+          <a-entity id="score-text" text="value: Score: 0; align: center; color: #0f0; width: 1.8"
+                    position="0 0 0.01"></a-entity>
+        </a-entity>
 
         <!-- OBJETS SAISISSABLES (physiques) -->
         <!-- Boule de bowling -->
