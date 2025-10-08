@@ -405,7 +405,7 @@
         vr-mode-ui="enabled: true"
         device-orientation-permission-ui="enabled: true"
         physics="gravity: -9.8; debug: false"
-        score-keeper="ball: #ball; pins: #pins; board: #score-text; settleMs: 2500; tiltDeg: 25">
+        score-keeper="ball: .bowling-ball; pins: #pins; board: #score-text; settleMs: 2500; tiltDeg: 25">
         <!-- Assets -->
         <a-assets>
           <img id="skyTexture" src="./assets/skynet.png" />
@@ -646,7 +646,7 @@
                   dynamic-body="mass: 1; shape: sphere">
                   <a-entity id="ballmodel" gltf-model="#bowlingball" position="-0.013 0.014 0.008" scale="0.19 0.19 0.19"></a-entity>
         </a-sphere>
-        
+
         <!-- Quilles alignées façon bowling (1–2–3–4) -->
         <!-- Quilles bowling resserrées (écart entre lignes réduit) -->
         <a-entity id="pins" rotation="0 0 0" position="0.045 0.3 -2.5">
