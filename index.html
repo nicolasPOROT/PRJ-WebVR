@@ -503,6 +503,7 @@
           <img id="groundTexture" src="./assets/grass.jpg" />
           <a-asset-item id="bowlingball" src="assets/VR_Bowling_ball.glb"></a-asset-item>
           <a-asset-item id="bowlingpin" src="assets/VR_Bowling_pin.glb"></a-asset-item>
+          <a-asset-item id="terrainModel" src="assets/VR_Forest.glb"></a-asset-item>
           <audio id="sfx-throw"  src="assets/sfx/throw-whoosh.mp3"></audio>
           <audio id="sfx-roll"   src="assets/sfx/ball-roll-loop.mp3"></audio>
           <audio id="sfx-pin"    src="assets/sfx/pins-hit.mp3"></audio>
@@ -535,6 +536,15 @@
             sphere-collider="objects: .grabbable, .hoverable, .pressable"
             static-body="shape: sphere; sphereRadius: 0.03">
           </a-entity>
+        </a-entity>
+
+        <!-- Terrain -->
+        <a-entity id="terrain"
+                  position="-1.710 -0.100 -6.310" rotation="0 90 0" scale="1 1 1"
+                  gltf-model="#terrainModel"
+                  material="side: double; roughness: 1; metalness: 0"
+                  static-body="shape: hull"
+                  shadow="receive: true; cast: false">
         </a-entity>
 
         <!-- GROUPE : piste de bowling (version full <a-box>) + extension -->
@@ -830,6 +840,16 @@
           </a-cylinder>
         </a-entity>
 
+        <!-- murs invisibles qui empeche joueur + balle + quille de sortir -->
+        <a-box position="1 0.5 2" width="4" height="2" depth="0.1" material="opacity: 0; transparent: true"
+               static-body="shape: box"></a-box>
+        <a-box position="1 0.5 -7" width="4" height="2" depth="0.1" material="opacity: 0; transparent: true"
+               static-body="shape: box"></a-box>
+        <a-box position="-1 0.5 -2" width="0.1" height="2" depth="10" material="opacity: 0; transparent: true"
+               static-body="shape: box"></a-box>
+        <a-box position="3 0.5 -2" width="0.1" height="2" depth="10" material="opacity: 0; transparent: true"
+               static-body="shape: box"></a-box>
+
         <a-entity id="announcer"
           sound__strike="src: #sfx-strike; volume: 0.9; positional: false"
           sound__spare="src: #sfx-spare;  volume: 0.8; positional: false">
@@ -841,9 +861,10 @@
         </a-entity>
 
        <!-- SOL : à y = 0 (garde shape: plane) -->
-        <a-plane position="0 -0.1 -1" rotation="-90 0 0" width="100" height="100" opacity="1"
+        <a-plane position="0 -0.1 -1" rotation="-90 0 0" width="100" height="100" opacity="0"
                 shadow="cast: false; receive: true"
-                static-body="shape: plane"></a-plane>
+                static-body="shape: plane"
+                material="shader: flat; src: #groundTexture; repeat: 100 100"></a-plane>
 
         <a-sky src="#skyTexture"></a-sky>
       </a-scene>
