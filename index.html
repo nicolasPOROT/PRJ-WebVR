@@ -24,32 +24,54 @@
       <script>
         // Déplacement joystick gauche
         AFRAME.registerComponent('joystick-movement', {
-          schema: { speed: { type: 'number', default: 2 } },
-          init: function () {
-            const rig = document.querySelector('#rig');
-            const head = document.querySelector('#head');
-            const leftHand = document.querySelector('#leftHand');
-            const speed = this.data.speed;
-            const DEADZONE = 0.1;
+        schema: {
+          speed: {type: 'number', default: 2},
+          minX: {type: 'number', default: -0.78}, // murs à x=-1 et x=3, ray. joueur ≈ 0.22
+          maxX: {type: 'number', default:  2.78},
+          minZ: {type: 'number', default: -6.78}, // murs à z=-7 et z=2
+          maxZ: {type: 'number', default:  1.78}
+        },
+        init: function () {
+          const rig = document.querySelector('#rig');
+          const head = document.querySelector('#head');
+          const leftHand = document.querySelector('#leftHand');
+          const DEADZONE = 0.1;
+          const speed = this.data.speed;
+          const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
 
-            leftHand.addEventListener('thumbstickmoved', function (evt) {
-              const dx = evt.detail.x, dy = evt.detail.y;
-              if (Math.abs(dx) < DEADZONE && Math.abs(dy) < DEADZONE) return;
+          leftHand.addEventListener('thumbstickmoved', (evt) => {
+            const dx = evt.detail.x, dy = evt.detail.y;
+            if (Math.abs(dx) < DEADZONE && Math.abs(dy) < DEADZONE) return;
 
-              const forward = new THREE.Vector3();
-              head.object3D.getWorldDirection(forward);
-              forward.y = 0; forward.normalize();
+            // axes locaux (avant/droite) à plat
+            const forward = new THREE.Vector3();
+            head.object3D.getWorldDirection(forward);
+            forward.y = 0; forward.normalize();
 
-              const right = new THREE.Vector3();
-              right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).negate();
+            const right = new THREE.Vector3();
+            right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).negate();
 
-              const step = 0.05 * speed;
-              const rigPos = rig.object3D.position;
-              rigPos.addScaledVector(forward, dy * step);
-              rigPos.addScaledVector(right,  dx * step);
-            });
-          }
-        });
+            // petit pas (évite le "tunneling")
+            const step = 0.04 * speed;
+
+            // On applique séparément X puis Z -> "glisse" sur les murs
+            const p = rig.object3D.position.clone();
+
+            // tentative X
+            const nx = p.x + (right.x * dx + forward.x * dy) * step;
+            const clampedX = clamp(nx, this.data.minX, this.data.maxX);
+            p.x = clampedX;
+
+            // tentative Z
+            const nz = rig.object3D.position.z + (right.z * dx + forward.z * dy) * step;
+            const clampedZ = clamp(nz, this.data.minZ, this.data.maxZ);
+            p.z = clampedZ;
+
+            rig.object3D.position.copy(p);
+          });
+        }
+      });
+
 
         // Rotation par crans (joystick droit)
         AFRAME.registerComponent('snap-turn', {
@@ -519,7 +541,7 @@
         <a-entity light="type: directional; intensity: 1; castShadow: true" position="2 4 -2"></a-entity>
 
         <!-- RIG + caméra + contrôleurs -->
-        <a-entity id="rig" position="1 0.2 1" joystick-movement="speed: 2" snap-turn="angle: 30; cooldown: 300" kinematic-body="radius: 0.22; height: 1.7; offset: 0 0.85 0">
+        <a-entity id="rig" position="1 0.2 1" joystick-movement="speed: 2; minX: -0.78; maxX: 2.78; minZ: -6.78; maxZ: 1.78" snap-turn="angle: 30; cooldown: 300">
           <a-entity id="head" camera wasd-controls-enabled="false" look-controls></a-entity>
 
           <!-- Mains : super-hands limité au bouton grip (side) + collision par sphère -->
