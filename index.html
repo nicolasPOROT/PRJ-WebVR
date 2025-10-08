@@ -159,19 +159,29 @@
           ball:   {type: 'selector', default: '#ball'},
           pins:   {type: 'selector', default: '#pins'},
           board:  {type: 'selector', default: '#score-text'},
-          settleMs:   {type: 'int', default: 2500},   // temps d’attente après dernier choc
-          tiltDeg:    {type: 'number', default: 25},  // angle seuil pour “tombée”
-          speedThresh:{type: 'number', default: 0.05} // m/s, si la balle est quasi immobile on peut scorer plus tôt
+          settleMs:   {type: 'int', default: 2500},    // attente après dernier choc
+          tiltDeg:    {type: 'number', default: 25},   // seuil d’inclinaison pour “tombée”
+          speedThresh:{type: 'number', default: 0.05}, // si la balle est quasi immobile on peut scorer plus tôt
+          maxFrames:  {type: 'int', default: 10}
         },
 
         init() {
+          // ---- état de partie
+          this.frame = 1;       // 1..10
+          this.roll  = 1;       // 1 ou 2 (on ne gère pas le 3e lancer du 10, pour simplifier)
+          this.fallenSet = new Set(); // quilles tombées depuis le début de la frame (persistées)
+          this.frameComplete = false;
+
+          // ---- timers / écouteurs
           this.timer = null;
           this.awaitingSettle = false;
 
-          // Récupère les quilles (enfants direct de #pins)
+          // enfants direct de #pins = les quilles
           this.pinEls = Array.from(this.data.pins.querySelectorAll('a-cylinder'));
+          // leur donner un index stable (utile en debug / tri)
+          this.pinEls.forEach((p, i) => { if (!p.dataset.idx) p.dataset.idx = String(i+1); });
 
-          // Écoute les collisions de la balle : si elle cogne une quille, on arme le timer
+          // collisions balle -> quille => armer le timer
           this.onBallCollide = (e) => {
             const other = e.detail?.body?.el;
             if (!other) return;
@@ -179,7 +189,7 @@
           };
           this.data.ball.addEventListener('collide', this.onBallCollide);
 
-          // Tick optionnel : si la balle est quasiment à l’arrêt et qu’on attend déjà, on score tout de suite
+          // tick : si la balle est quasi immobile et qu’on attend déjà -> évaluer maintenant
           this.tick = () => {
             if (!this.awaitingSettle) return;
             const v = this.data.ball.body?.velocity;
@@ -189,17 +199,35 @@
             }
           };
 
-          // Reset global (depuis le bouton)
-          this.el.sceneEl.addEventListener('reset-all', () => this.resetScore());
+          // reset-all : si frame terminée, avancer de frame ; sinon, on repart proprement (nouvelle frame)
+          this.onResetAll = () => {
+            this.clearTimer();
+            this.awaitingSettle = false;
+
+            if (this.frameComplete || this.roll === 2) {
+              this.advanceFrame();
+            } else {
+              // reset pendant la frame -> repartir sur nouvelle frame
+              this.advanceFrame();
+            }
+          };
+          this.el.sceneEl.addEventListener('reset-all', this.onResetAll);
+
+          // affichage initial
+          this.updateBoard({thisRoll: 0, totalDown: 0, tag: ''});
         },
 
         remove() {
           this.data.ball.removeEventListener('collide', this.onBallCollide);
+          this.el.sceneEl.removeEventListener('reset-all', this.onResetAll);
           this.clearTimer();
         },
 
+        // ---------- utilitaires ----------
         armSettleTimer() {
           this.clearTimer();
+          // si la frame est finie, on ignore (attend RESET)
+          if (this.frameComplete) return;
           this.awaitingSettle = true;
           this.timer = setTimeout(() => this.evaluateNow(), this.data.settleMs);
         },
@@ -209,7 +237,6 @@
           this.timer = null;
         },
 
-        // Calcule l’angle entre l’axe Y monde et l’axe Y de la quille
         isUpright(pinEl) {
           const q = new THREE.Quaternion();
           pinEl.object3D.getWorldQuaternion(q);
@@ -219,24 +246,73 @@
           return deg < this.data.tiltDeg;
         },
 
+        getDownPins() {
+          return this.pinEls.filter(p => !this.isUpright(p));
+        },
+
+        // ---------- cœur : fin de lancer ----------
         evaluateNow() {
+          if (this.frameComplete) return; // rien à faire si frame déjà finie
           this.clearTimer();
           this.awaitingSettle = false;
 
-          const fallen = this.pinEls.filter(p => !this.isUpright(p)).length;
-          this.setScore(fallen);
+          const downNow = this.getDownPins();
+          // set courant des tombées à cet instant
+          const downSetNow = new Set(downNow);
+          // “quilles tombées pendant CE lancer” = downNow \ fallenSet
+          const thisRollKnocked = downNow.filter(p => !this.fallenSet.has(p)).length;
+
+          // mettre à jour l’affichage (avant d’avancer d’état)
+          const totalDown = new Set([...this.fallenSet, ...downSetNow]).size;
+          let tag = '';
+          if (this.roll === 1 && totalDown === 10) tag = 'STRIKE!';
+          if (this.roll === 2 && totalDown === 10) tag = 'SPARE!';
+
+          this.updateBoard({thisRoll: thisRollKnocked, totalDown, tag});
+
+          // persister les tombées dans la frame
+          downSetNow.forEach(p => this.fallenSet.add(p));
+
+          // avancer l’état
+          if (this.roll === 1) {
+            if (totalDown === 10) {
+              // STRIKE : frame terminée, attendre RESET pour passer à la suivante
+              this.frameComplete = true;
+            } else {
+              // passer au 2e lancer
+              this.roll = 2;
+            }
+          } else {
+            // fin du 2e lancer -> frame terminée
+            this.frameComplete = true;
+          }
         },
 
-        setScore(n) {
-          this.data.board.setAttribute('text', 'value', `Score: ${n}`);
+        // affichage sur le panneau
+        updateBoard({thisRoll, totalDown, tag}) {
+          // exemple : "F1 R1 — +4 (total 4/10)" + tag éventuel
+          const left = `F${this.frame} R${this.roll}`;
+          const right = `+${thisRoll} (total ${totalDown}/10)`;
+          const extra = tag ? `  ${tag}` : '';
+          this.data.board.setAttribute('text', 'value', `${left} — ${right}${extra}`);
         },
 
-        resetScore() {
-          this.clearTimer();
-          this.awaitingSettle = false;
-          this.setScore(0);
+        // passage à la frame suivante (appelé sur reset-all)
+        advanceFrame() {
+          // reset état de frame
+          this.fallenSet.clear();
+          this.frameComplete = false;
+          this.roll = 1;
+
+          // avancer numéro de frame
+          this.frame += 1;
+          if (this.frame > this.data.maxFrames) this.frame = 1; // boucle après la 10e pour rester simple
+
+          // rafraîchir l’affichage
+          this.updateBoard({thisRoll: 0, totalDown: 0, tag: ''});
         }
       });
+
 
       </script>
 
@@ -286,12 +362,12 @@
         <a-entity id="bowling-lane" position="1 0 0">
 
           <!-- Approche (zone de départ) -->
-          <a-box position="0 0.01 -0.6" width="1.066" height="0.02" depth="1.2"
+          <a-box position="0 0.01 -0.106" width="1.066" height="0.02" depth="2"
                 material="color:#c89c6c; metalness:0.2; roughness:0.7"
                 static-body="shape: box"></a-box>
 
           <!-- Ligne de faute -->
-          <a-box position="0 0.011 -1.2" width="1.066" height="0.002" depth="0.02"
+          <a-box position="0 0.011 -1.2" width="1.066" height="0.02" depth="0.02"
                 material="color:#ffffff" static-body="shape: box"></a-box>
 
           <!-- Piste (segment 1) -->
@@ -307,23 +383,23 @@
 
           <!-- Pin deck (reculé derrière l’extension) -->
           <!-- depth=0.6 => span [-4.3 ; -3.7] -->
-          <a-box position="0 0.01 -4.0" width="1.066" height="0.02" depth="0.6"
+          <a-box position="0 0.01 -4.45" width="1.066" height="0.02" depth="2"
                 material="color:#a87447; metalness:0.2; roughness:0.6"
                 static-body="shape: box"></a-box>
 
           <!-- Gouttières (allongées jusqu’au fond) -->
-          <!-- On couvre approximativement de -0.6 à -4.3 => centre -2.45, depth 3.7 -->
-          <a-box position="-0.68 -0.04 -2.45" width="0.28" height="0.02" depth="3.7"
+          <!-- On couvre approximativement de -0.6 à -4.3 => centre -2.45, depth 4 -->
+          <a-box position="-0.68 -0.04 -2.45" width="0.28" height="0.02" depth="6"
                 material="color:#6b6b6b; roughness:0.9"
                 static-body="shape: box"></a-box>
-          <a-box position="0.68 -0.04 -2.45" width="0.28" height="0.02" depth="3.7"
+          <a-box position="0.68 -0.04 -2.45" width="0.28" height="0.02" depth="6"
                 material="color:#6b6b6b; roughness:0.9"
                 static-body="shape: box"></a-box>
 
           <!-- Bordures (rails) allongées pareil que les gouttières -->
-          <a-box position="-0.82 0.12 -2.45" width="0.04" height="0.24" depth="3.7"
+          <a-box position="-0.82 0.12 -2.45" width="0.04" height="0.24" depth="6"
                 material="color:#444" static-body="shape: box"></a-box>
-          <a-box position="0.82 0.12 -2.45" width="0.04" height="0.24" depth="3.7"
+          <a-box position="0.82 0.12 -2.45" width="0.04" height="0.24" depth="6"
                 material="color:#444" static-body="shape: box"></a-box>
 
           <!-- Repères (points) -->
@@ -349,7 +425,7 @@
                 shadow="receive: false; cast: false"></a-box>
 
           <!-- Mur de fond (reculé) -->
-          <a-box position="0 0.5 -4.55" width="1.2" height="1.0" depth="0.05"
+          <a-box position="0 0.5 -5.5" width="1.2" height="1.0" depth="0.05"
                 material="color:#222" static-body="shape: box"></a-box>
         </a-entity>
 
@@ -396,7 +472,7 @@
         </a-sphere>
         <!-- Quilles alignées façon bowling (1–2–3–4) -->
         <!-- Quilles bowling resserrées (écart entre lignes réduit) -->
-        <a-entity id="pins" rotation="0 0 0" position="0.045 0.3 -1.6">
+        <a-entity id="pins" rotation="0 0 0" position="0.045 0.3 -2.5">
           <a-cylinder class="grabbable" resettable position="1.0 0.1 -1.9" radius="0.05" height="0.3" color="#FFC65D"
             shadow="cast: true; receive: true" opacity="0"
             grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
