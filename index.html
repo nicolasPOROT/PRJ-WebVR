@@ -157,7 +157,7 @@
 
       AFRAME.registerComponent('score-keeper', {
         schema: {
-          ball:   {type: 'selector', default: '#ball'},
+          ball:   {type: 'selector', default: '.bowling-ball'},
           pins:   {type: 'selector', default: '#pins'},
           board:  {type: 'selector', default: '#score-text'},
           settleMs:    {type: 'int',    default: 2500},
@@ -182,21 +182,35 @@
           this.pinEls = Array.from(this.data.pins.querySelectorAll('a-cylinder'));
           this.pinEls.forEach((p, i) => { if (!p.dataset.idx) p.dataset.idx = String(i+1); });
 
+          this.ballEls = Array.from(this.data.balls || []);
+          this.currentBall = null; // dernière balle utilisée
           // balle touche une quille -> timer de settle
+          // écoute collisions pour TOUTES les balles
           this.onBallCollide = (e) => {
-            const other = e.detail?.body?.el;
-            if (other && this.pinEls.includes(other)) this.armSettleTimer();
-          };
-          this.data.ball.addEventListener('collide', this.onBallCollide);
-
-          // si la balle ne bouge quasi plus, évaluer maintenant
-          this.tick = () => {
-            if (!this.awaitingSettle) return;
-            const v = this.data.ball.body?.velocity;
-            if (v) {
-              const speed = Math.hypot(v.x, v.y, v.z);
-              if (speed < this.data.speedThresh) this.evaluateNow();
+            const ballEl = e.target; // la balle qui a émis l'event
+            const other  = e.detail?.body?.el;
+            if (!other) return;
+            if (this.pinEls.includes(other)) {
+              this.currentBall = ballEl;  // mémorise la balle active
+              this.armSettleTimer();
             }
+          };
+
+          // mémoriser la balle quand on la saisit
+          this.onGrabStart = (e) => { this.currentBall = e.target; };
+
+          // brancher les écouteurs sur chaque balle
+          this.ballEls.forEach(b => {
+            b.addEventListener('collide', this.onBallCollide);
+            b.addEventListener('grab-start', this.onGrabStart); // super-hands
+          });
+
+          // pour tester l'immobilité, on regarde la balle active
+          this.tick = () => {
+            if (!this.awaitingSettle || !this.currentBall?.body) return;
+            const v = this.currentBall.body.velocity;
+            const speed = Math.hypot(v.x, v.y, v.z);
+            if (speed < this.data.speedThresh) this.evaluateNow();
           };
 
           // HARD RESET (bouton) : tout l'état repart à zéro (comme refresh)
@@ -207,7 +221,10 @@
         },
 
         remove() {
-          this.data.ball.removeEventListener('collide', this.onBallCollide);
+          this.ballEls.forEach(b => {
+            b.removeEventListener('collide', this.onBallCollide);
+            b.removeEventListener('grab-start', this.onGrabStart);
+          });
           this.el.sceneEl.removeEventListener('hard-reset', this.onHardReset);
           this.clearTimer();
           this.clearBallTimer();
@@ -310,7 +327,7 @@
             } else {
               // on passe au 2e lancer + retour automatique de la balle
               this.roll = 2;
-              
+
                // 🧹 RANGER les quilles tombées du 1er lancer pour qu'elles ne gênent pas
               this.parkFallenPins();
 
@@ -325,22 +342,21 @@
           }
         },
 
-        // ---- retour auto de la balle pour le 2e lancer
+        // Retour auto : reset uniquement la balle "active", fallback sur la 1re si besoin
         scheduleBallReturn() {
           this.clearBallTimer();
           this.ballTimer = setTimeout(() => {
             if (this.frameComplete || this.roll !== 2) return;
-            this.data.ball.components.resettable?.resetNow();
+            const toReset = this.currentBall || this.ballEls[0];
+            toReset?.components.resettable?.resetNow();
           }, this.data.ballReturnMs);
         },
 
-        // ---- passage auto à la frame suivante : reset objets puis avancer frame
+        // Passage de frame : reset toutes les balles + quilles
         scheduleNextFrame() {
           this.clearNextFrameTimer();
           this.nextFrameTimer = setTimeout(() => {
-            // 1) reset objets (balle + quilles…)
-            document.querySelectorAll('[resettable]').forEach(e => e.components.resettable?.resetNow());
-            // 2) avancer la frame (réinitialise l’état de frame)
+            [...document.querySelectorAll('[resettable]')].forEach(e => e.components.resettable?.resetNow());
             this.advanceFrame();
           }, this.data.nextFrameMs);
         },
@@ -526,7 +542,7 @@
                     position="0 0 0.01"></a-entity>
         </a-entity>
 
-        <!-- Box contenant balle -->
+        <!-- Box contenant balle facile-->
          <a-entity id="ball-box" position="-0.1 0 0.24">
            <!-- sol de la box -->
           <a-box position="0 0.01 0.24" width="0.4" height="0.02" depth="0.4"
@@ -545,16 +561,92 @@
           <a-box position="0 0.15 0.44" width="0.4" height="0.3" depth="0.02"
                 material="color:#444"
                 static-body="shape: box"></a-box>
+          <a-entity position="-0.305 0.605 0.219" rotation="0 90 0">
+            <a-plane width="0.5" height="0.2" color="#222" opacity="0.8"></a-plane>
+            <a-entity text="value: Balle facile; align: center; color: #0f0; width: 1.4"
+                      position="0 0 0.01"></a-entity>
+          </a-entity>
+        </a-entity>
+
+        <!-- Box contenant balle moyenne-->
+         <a-entity id="ball-box" position="-0.1 0 0.75">
+           <!-- sol de la box -->
+          <a-box position="0 0.01 0.24" width="0.4" height="0.02" depth="0.4"
+                material="color:#666; metalness:0.3; roughness:0.8"
+                static-body="shape: box"></a-box>
+          <!-- murs de la box -->
+          <a-box position="0.2 0.15 0.24" width="0.02" height="0.3" depth="0.4"
+                material="color:#444"
+                static-body="shape: box"></a-box>
+          <a-box position="-0.2 0.15 0.24" width="0.02" height="0.3" depth="0.4"
+                material="color:#444"
+                static-body="shape: box"></a-box>
+          <a-box position="0 0.15 0.04" width="0.4" height="0.3" depth="0.02"
+                material="color:#444"
+                static-body="shape: box"></a-box>
+          <a-box position="0 0.15 0.44" width="0.4" height="0.3" depth="0.02"
+                material="color:#444"
+                static-body="shape: box"></a-box>
+          <a-entity position="-0.305 0.605 0.219" rotation="0 90 0">
+            <a-plane width="0.5" height="0.2" color="#222" opacity="0.8"></a-plane>
+            <a-entity text="value: Balle moyenne; align: center; color: #0f0; width: 1.4"
+                      position="0 0 0.01"></a-entity>
+          </a-entity>
+        </a-entity>
+
+        <!-- Box contenant balle difficile-->
+         <a-entity id="ball-box" position="-0.1 0 1.26">
+           <!-- sol de la box -->
+          <a-box position="0 0.01 0.24" width="0.4" height="0.02" depth="0.4"
+                material="color:#666; metalness:0.3; roughness:0.8"
+                static-body="shape: box"></a-box>
+          <!-- murs de la box -->
+          <a-box position="0.2 0.15 0.24" width="0.02" height="0.3" depth="0.4"
+                material="color:#444"
+                static-body="shape: box"></a-box>
+          <a-box position="-0.2 0.15 0.24" width="0.02" height="0.3" depth="0.4"
+                material="color:#444"
+                static-body="shape: box"></a-box>
+          <a-box position="0 0.15 0.04" width="0.4" height="0.3" depth="0.02"
+                material="color:#444"
+                static-body="shape: box"></a-box>
+          <a-box position="0 0.15 0.44" width="0.4" height="0.3" depth="0.02"
+                material="color:#444"
+                static-body="shape: box"></a-box>
+          <a-entity position="-0.305 0.605 0.219" rotation="0 90 0">
+            <a-plane width="0.5" height="0.2" color="#222" opacity="0.8"></a-plane>
+            <a-entity text="value: Balle difficile; align: center; color: #0f0; width: 1.4"
+                      position="0 0 0.01"></a-entity>
+          </a-entity>
         </a-entity>
 
         <!-- OBJETS SAISISSABLES (physiques) -->
-        <!-- Boule de bowling -->
-        <a-sphere id="ball" class="grabbable" resettable position="-0.081 0.170 0.408" radius="0.15" color="#EF2D5E"
+        <!-- Boules de bowling -->
+
+         <!-- facile -->
+        <a-sphere id="ball-easy" class="bowling-ball grabbable" resettable position="-0.081 0.170 0.408" radius="0.15" color="#EF2D5E"
                   shadow="cast: true; receive: true" opacity="0"
                   grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
                   dynamic-body="mass: 10; shape: sphere">
                   <a-entity id="ballmodel" gltf-model="#bowlingball" position="-0.013 0.014 0.008" scale="0.19 0.19 0.19"></a-entity>
         </a-sphere>
+
+          <!-- moyen -->
+        <a-sphere id="ball-medium" class="bowling-ball grabbable" resettable position="-0.081 0.170 0.918" radius="0.15" color="#EF2D5E"
+                  shadow="cast: true; receive: true" opacity="0"
+                  grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+                  dynamic-body="mass: 5; shape: sphere">
+                  <a-entity id="ballmodel" gltf-model="#bowlingball" position="-0.013 0.014 0.008" scale="0.19 0.19 0.19"></a-entity>
+        </a-sphere>
+
+          <!-- difficile -->
+        <a-sphere id="ball-hard" class="bowling-ball grabbable" resettable position="-0.081 0.170 1.428" radius="0.15" color="#EF2D5E"
+                  shadow="cast: true; receive: true" opacity="0"
+                  grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+                  dynamic-body="mass: 1; shape: sphere">
+                  <a-entity id="ballmodel" gltf-model="#bowlingball" position="-0.013 0.014 0.008" scale="0.19 0.19 0.19"></a-entity>
+        </a-sphere>
+        
         <!-- Quilles alignées façon bowling (1–2–3–4) -->
         <!-- Quilles bowling resserrées (écart entre lignes réduit) -->
         <a-entity id="pins" rotation="0 0 0" position="0.045 0.3 -2.5">
