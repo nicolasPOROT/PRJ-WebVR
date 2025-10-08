@@ -235,6 +235,51 @@
           return deg < this.data.tiltDeg;
         },
         getDownPins() { return this.pinEls.filter(p => !this.isUpright(p)); },
+        // Convertit une position MONDE -> LOCALE puis déplace l'entité + son body
+        moveEntityToWorld(el, worldPos, quat=null) {
+          // partie visuelle
+          const parent = el.object3D.parent;
+          const local = worldPos.clone();
+          if (parent) parent.worldToLocal(local);
+          el.object3D.position.copy(local);
+          if (quat) el.object3D.quaternion.copy(quat);
+          el.object3D.updateMatrixWorld(true);
+
+          // partie physique
+          const body = el.body;
+          if (body) {
+            const p = worldPos.clone(); p.y += 0.002; // petit lift anti-interpénétration
+            if (body.position) body.position.set(p.x, p.y, p.z);
+            if (quat && body.quaternion) body.quaternion.set(quat.x, quat.y, quat.z, quat.w);
+            if (body.velocity) body.velocity.set(0,0,0);
+            if (body.angularVelocity) body.angularVelocity.set(0,0,0);
+            try { el.components['dynamic-body']?.syncToPhysics(); } catch(e) {}
+          }
+        },
+
+        // Aligne en grille derrière le mur les quilles tombées au 1er lancer
+        parkFallenPins() {
+          // base MONDE derrière le mur (le tien est vers z≈-5.5)
+          const base = new THREE.Vector3(1.0, 0.05, -6.2); // x≈axe de la piste, z derrière
+          const dx = 0.16, dz = 0.34;                      // entraxes de la grille
+          let i = 0;
+          // On utilise l'ordre stable des quilles tombées
+          const fallen = Array.from(this.fallenSet);
+          fallen.forEach(pinEl => {
+            // si finalement elle est debout (rare), on ne la range pas
+            if (this.isUpright(pinEl)) return;
+            const col = i % 5;         // 5 par rangée
+            const row = (i / 5) | 0;
+            const target = base.clone();
+            target.x += (col - 2) * dx; // centré autour de la piste
+            target.z -= row * dz;       // plusieurs rangées si besoin
+            // on garde l’orientation actuelle (couchée) ; ou remet debout:
+            // const quat = new THREE.Quaternion(); // (laisse null pour conserver)
+            this.moveEntityToWorld(pinEl, target, null);
+            i++;
+          });
+        },
+
 
         // ---- fin de lancer
         evaluateNow() {
@@ -265,6 +310,11 @@
             } else {
               // on passe au 2e lancer + retour automatique de la balle
               this.roll = 2;
+              
+               // 🧹 RANGER les quilles tombées du 1er lancer pour qu'elles ne gênent pas
+              this.parkFallenPins();
+
+              // puis retour auto de la balle
               this.scheduleBallReturn();
             }
           } else {
@@ -300,7 +350,7 @@
           const left = `Tour: ${this.frame}  Lancer: ${this.roll}`;
           const right = `+${thisRoll} (total ${totalDown}/10)`;
           const extra = tag ? `  ${tag}` : '';
-          this.data.board.setAttribute('text', 'value', `${left} —\n ${right}${extra}`);
+          this.data.board.setAttribute('text', 'value', `${left} —\n ${right}\n${extra}`);
         },
 
         // ---- avance d'une frame (appelé par scheduleNextFrame)
@@ -353,7 +403,7 @@
         <a-entity light="type: directional; intensity: 1; castShadow: true" position="2 4 -2"></a-entity>
 
         <!-- RIG + caméra + contrôleurs -->
-        <a-entity id="rig" position="0 0.2 0" joystick-movement="speed: 2" snap-turn="angle: 30; cooldown: 300">
+        <a-entity id="rig" position="1 0.2 1" joystick-movement="speed: 2" snap-turn="angle: 30; cooldown: 300">
           <a-entity id="head" camera wasd-controls-enabled="false" look-controls></a-entity>
 
           <!-- Mains : super-hands limité au bouton grip (side) + collision par sphère -->
@@ -470,15 +520,36 @@
         </a-entity>
 
         <!-- Score -->
-        <a-entity id="score-board" position="1.5 1 -1.5" rotation="0 -30 0">
-          <a-plane width="0.6" height="0.3" color="#222" opacity="0.8"></a-plane>
+        <a-entity id="score-board" position="2 1 -2" rotation="0 -30 0">
+          <a-plane width="0.7" height="0.6" color="#222" opacity="0.8"></a-plane>
           <a-entity id="score-text" text="value: Score: 0; align: center; color: #0f0; width: 1.8"
                     position="0 0 0.01"></a-entity>
         </a-entity>
 
+        <!-- Box contenant balle -->
+         <a-entity id="ball-box" position="-0.1 0 0.24">
+           <!-- sol de la box -->
+          <a-box position="0 0.01 0.24" width="0.4" height="0.02" depth="0.4"
+                material="color:#666; metalness:0.3; roughness:0.8"
+                static-body="shape: box"></a-box>
+          <!-- murs de la box -->
+          <a-box position="0.2 0.15 0.24" width="0.02" height="0.3" depth="0.4"
+                material="color:#444"
+                static-body="shape: box"></a-box>
+          <a-box position="-0.2 0.15 0.24" width="0.02" height="0.3" depth="0.4"
+                material="color:#444"
+                static-body="shape: box"></a-box>
+          <a-box position="0 0.15 0.04" width="0.4" height="0.3" depth="0.02"
+                material="color:#444"
+                static-body="shape: box"></a-box>
+          <a-box position="0 0.15 0.44" width="0.4" height="0.3" depth="0.02"
+                material="color:#444"
+                static-body="shape: box"></a-box>
+        </a-entity>
+
         <!-- OBJETS SAISISSABLES (physiques) -->
         <!-- Boule de bowling -->
-        <a-sphere id="ball" class="grabbable" resettable position="1 1.2 0.24" radius="0.15" color="#EF2D5E"
+        <a-sphere id="ball" class="grabbable" resettable position="-0.081 0.170 0.408" radius="0.15" color="#EF2D5E"
                   shadow="cast: true; receive: true" opacity="0"
                   grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
                   dynamic-body="mass: 10; shape: sphere">
