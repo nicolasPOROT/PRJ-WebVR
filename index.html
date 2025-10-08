@@ -879,6 +879,18 @@
               material="opacity: 0; transparent: true"
               static-body="shape: box"></a-box>
 
+        <!-- Règle au dessus du mur du fond-->
+        <a-entity id="game-rules" position="0 2 -5.6">
+          <a-plane width="2.5" height="1.5" color="#222" opacity="0.8" position="1 0 0"></a-plane>
+          <a-entity text="value: Regle du jeu:
+                                - Prenez une seule balle a la fois.
+                                - Lancez-la en la lachant ou en la projetant.
+                                - Apres chaque lancer, attendez que la balle soit revenue et que les quilles soient immobiles.
+                                - Appuyez sur le bouton RESET pour recommencer une partie.
+                                \nCe jeu a ete realise dans le cadre du projet WebVR par Fabio MALTA, Nicolas POROT, Mateo BIAUT et Benjamin JOANNARD; align: center; color: #fff; width: 2.2"
+                    position="1 0 0.01"></a-entity>
+        </a-entity>
+
 
         <a-entity id="announcer"
           sound__strike="src: #sfx-strike; volume: 0.9; positional: false"
