@@ -465,6 +465,25 @@
         }
       });
 
+
+      // Lance la musique après le premier geste utilisateur (click / enter-vr)
+      AFRAME.registerComponent('bgm-controller', {
+        init() {
+          const el = this.el; // l'entité qui porte sound__bgm
+          const start = () => {
+            // évite double start
+            if (this.started) return;
+            this.started = true;
+            el.components['sound__bgm']?.playSound();
+            window.removeEventListener('click', start);
+            el.sceneEl.removeEventListener('enter-vr', start);
+          };
+          // un clic n'importe où ou l’entrée en VR suffisent
+          window.addEventListener('click', start, { once: true });
+          el.sceneEl.addEventListener('enter-vr', start, { once: true });
+        }
+      });
+
     </script>
 
     </head>
@@ -489,6 +508,8 @@
           <audio id="sfx-pin"    src="assets/sfx/pins-hit.mp3"></audio>
           <audio id="sfx-strike" src="assets/sfx/strike.mp3"></audio>
           <audio id="sfx-spare"  src="assets/sfx/spare.mp3"></audio>
+          <audio id="sfx-music" src="assets/music/bgm.mp3" crossorigin="anonymous"></audio>
+
 
         </a-assets>
 
@@ -814,6 +835,10 @@
           sound__spare="src: #sfx-spare;  volume: 0.8; positional: false">
         </a-entity>
 
+        <a-entity id="bgm"
+          bgm-controller
+          sound__bgm="src: #sfx-music; loop: true; positional: false; autoplay: false; volume: 0.25">
+        </a-entity>
 
        <!-- SOL : à y = 0 (garde shape: plane) -->
         <a-plane position="0 -0.1 -1" rotation="-90 0 0" width="100" height="100" opacity="1"
