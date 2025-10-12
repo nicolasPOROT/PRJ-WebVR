@@ -447,6 +447,13 @@
 
           // persiste tombées
           downSetNow.forEach(p => this.fallenSet.add(p));
+          
+          // --- NEW: prévenir le tableau de score ---
+          this.el.sceneEl.emit('score:roll', {
+            pins: thisRollKnocked,
+            frame: this.frame,
+            roll:  this.roll
+          });
 
           // avance d'état + automatisme
           if (this.roll === 1) {
@@ -558,6 +565,264 @@
         }
       });
 
+      /**
+       * bowling-scoreboard
+       * - Génère une grille 10 frames.
+       * - Écoute les events :
+       *   - 'score:roll'  => { pins, frame, roll }  (émis par score-keeper après chaque lancer)
+       *   - 'hard-reset'  => réinitialise tout
+       * - Calcule les scores cumulés en appliquant les règles bowling (strike/spare).
+       */
+      AFRAME.registerComponent('bowling-scoreboard', {
+        schema: {
+          cols:  {type: 'int', default: 10},
+          cellW: {type: 'number', default: 0.18},
+          cellH: {type: 'number', default: 0.10},
+          gap:   {type: 'number', default: 0.006}
+        },
+
+        init() {
+          this.rolls = [];            // tableau de valeurs par lancer (0..10)
+          this.framesView = [];       // [{r1:'', r2:'', r3:''?, cum:''}, ...]
+          this.cells = [];            // références UI par frame : {r1,r2,r3,cum,box}
+
+          this.buildGrid();
+
+          // écoute les événements
+          this.onRoll = (e) => {
+            const pins = Math.max(0, Math.min(10, (e.detail?.pins ?? 0)));
+            this.rolls.push(pins);
+            this.refresh();
+          };
+          this.onHardReset = () => { this.resetAll(); };
+
+          this.el.sceneEl.addEventListener('score:roll',  this.onRoll);
+          this.el.sceneEl.addEventListener('hard-reset',  this.onHardReset);
+
+          // init
+          this.resetAll();
+        },
+
+        remove() {
+          this.el.sceneEl.removeEventListener('score:roll',  this.onRoll);
+          this.el.sceneEl.removeEventListener('hard-reset',  this.onHardReset);
+        },
+
+        resetAll() {
+          this.rolls = [];
+          this.framesView = Array.from({length: this.data.cols}, _ => ({r1:'', r2:'', r3:'', cum:''}));
+          this.render();
+        },
+
+        buildGrid() {
+          const {cols, cellW, cellH, gap} = this.data;
+          const totalW = cols * cellW + (cols - 1) * gap;
+          const totalH = cellH * 2 + gap; // ligne lancers (haut) + ligne cumul (bas)
+
+          // fond
+          const bg = document.createElement('a-plane');
+          bg.setAttribute('width',  totalW + 0.04);
+          bg.setAttribute('height', totalH + 0.04);
+          bg.setAttribute('color', '#111');
+          bg.setAttribute('opacity', 0.85);
+          this.el.appendChild(bg);
+
+          this.cells = [];
+
+          // créer 10 colonnes (frames)
+          const startX = -totalW / 2 + cellW/2;
+          const topY   =  totalH / 2 - cellH/2;
+
+          for (let i = 0; i < cols; i++) {
+            const colX = startX + i * (cellW + gap);
+
+            // cadre de la frame
+            const box = document.createElement('a-plane');
+            box.setAttribute('position', `${colX} 0 0.001`);
+            box.setAttribute('width',  cellW);
+            box.setAttribute('height', totalH);
+            box.setAttribute('color', '#222');
+            box.setAttribute('opacity', 0.95);
+            this.el.appendChild(box);
+
+            // séparateur horizontal (entre lancers et cumul)
+            const sep = document.createElement('a-plane');
+            sep.setAttribute('position', `${colX} ${topY - (cellH + gap/2)} 0.002`);
+            sep.setAttribute('width', cellW);
+            sep.setAttribute('height', 0.003);
+            sep.setAttribute('color', '#555');
+            this.el.appendChild(sep);
+
+            // en-tête numéro de frame
+            const head = document.createElement('a-entity');
+            head.setAttribute('position', `${colX} ${topY + 0.07} 0.003`);
+            head.setAttribute('text', {
+              value: String(i+1),
+              align: 'center',
+              color: '#9ad',
+              width: 1.4
+            });
+            this.el.appendChild(head);
+
+            // cases texte : r1 r2 (et r3 pour la 10e), cum
+            const r1 = document.createElement('a-entity');
+            r1.setAttribute('position', `${colX - cellW*0.22} ${topY} 0.003`);
+            r1.setAttribute('text', {value:'', align:'center', color:'#fff', width:1.8});
+            const r2 = document.createElement('a-entity');
+            r2.setAttribute('position', `${colX + cellW*0.10} ${topY} 0.003`);
+            r2.setAttribute('text', {value:'', align:'center', color:'#fff', width:1.8});
+            const r3 = document.createElement('a-entity');
+            r3.setAttribute('position', `${colX + cellW*0.35} ${topY} 0.003`);
+            r3.setAttribute('text', {value:'', align:'center', color:'#fff', width:1.8, opacity: (i===9)?1:0}); // visible 10e frame
+
+            const cum = document.createElement('a-entity');
+            cum.setAttribute('position', `${colX} ${-totalH/2 + cellH/2} 0.003`);
+            cum.setAttribute('text', {value:'', align:'center', color:'#0f0', width:1.6});
+
+            this.el.appendChild(r1);
+            this.el.appendChild(r2);
+            this.el.appendChild(r3);
+            this.el.appendChild(cum);
+
+            this.cells.push({box, r1, r2, r3, cum});
+          }
+        },
+
+        // Convertit une valeur de lancer -> symbole bowling ('X', '/', '-', chiffre)
+        symbolFor(rollVal, prevRollVal=null, isTenth=false, isFirst=false) {
+          if (rollVal === 10 && (isFirst || isTenth)) return 'X';
+          if (rollVal === 0) return '-';
+          if (prevRollVal != null && prevRollVal + rollVal === 10 && !isFirst) return '/';
+          return String(rollVal);
+        },
+
+        // Calcule toutes les frames + cumul à partir de this.rolls
+        computeFrames() {
+          const frames = [];
+          let i = 0;
+          for (let f = 1; f <= 10; f++) {
+            if (f < 10) {
+              const r1 = this.rolls[i]  ?? null;
+              const strike = (r1 === 10);
+              if (strike) {
+                const bonus1 = this.rolls[i+1] ?? 0;
+                const bonus2 = this.rolls[i+2] ?? 0;
+                const score  = 10 + bonus1 + bonus2;
+                frames.push({r1:10, r2:null, r3:null, score, kind:'X'});
+                i += 1;
+              } else {
+                const r2 = this.rolls[i+1] ?? null;
+                if (r1 == null || r2 == null) {
+                  frames.push({r1, r2, r3:null, score:null, kind:'open'});
+                  break; // frame incomplète
+                }
+                const sum = r1 + r2;
+                if (sum === 10) {
+                  const bonus = this.rolls[i+2] ?? 0;
+                  frames.push({r1, r2, r3:null, score:10 + bonus, kind:'/'});
+                } else {
+                  frames.push({r1, r2, r3:null, score:sum, kind:'open'});
+                }
+                i += 2;
+              }
+            } else {
+              // 10e frame : jusqu'à 3 lancers
+              const r1 = this.rolls[i]   ?? null;
+              const r2 = this.rolls[i+1] ?? null;
+              let r3 = null;
+              if (r1 != null && r2 != null) {
+                const strikeOrSpare = (r1 === 10) || (r1 + r2 === 10);
+                if (strikeOrSpare) r3 = this.rolls[i+2] ?? null;
+              }
+
+              // score de la 10e = somme des lancers présents
+              const score = [r1, r2, r3].reduce((s,v)=>s+(v??0),0);
+              frames.push({r1, r2, r3, score: (r1!=null && r2!=null ? score : null), kind:'tenth'});
+              // pas d'incrément d'i ici : fin de parcours
+            }
+          }
+
+          // cumul
+          let running = 0;
+          for (let k = 0; k < frames.length; k++) {
+            if (frames[k].score != null) {
+              running += frames[k].score;
+              frames[k].cum = running;
+            } else {
+              frames[k].cum = null;
+            }
+          }
+          return frames;
+        },
+
+        refresh() {
+          this.framesView = this.computeFrames();
+          this.render();
+        },
+
+        render() {
+          // efface style actif
+          this.cells.forEach((c, idx) => {
+            c.box.setAttribute('color', idx === this.activeFrameIndex()? '#333' : '#222');
+          });
+
+          // met à jour les 10 frames
+          for (let f = 0; f < 10; f++) {
+            const cell = this.cells[f];
+            const data = this.framesView[f] || {r1:'', r2:'', r3:'', cum:''};
+
+            // Lancers -> symboles
+            if (f < 9) {
+              const r1v = (data.r1 ?? null);
+              const r2v = (data.r2 ?? null);
+              const r1s = (r1v==null) ? '' : this.symbolFor(r1v, null, false, true);
+              const r2s = (r2v==null) ? '' : this.symbolFor(r2v, r1v, false, false);
+              cell.r1.setAttribute('text', 'value', r1s);
+              cell.r2.setAttribute('text', 'value', r2s);
+              cell.r3.setAttribute('text', 'value', '');
+              cell.r3.setAttribute('text', 'opacity', 0);
+            } else {
+              // 10e frame (peut afficher 3 symboles)
+              const r1v = (data.r1 ?? null);
+              const r2v = (data.r2 ?? null);
+              const r3v = (data.r3 ?? null);
+              const r1s = (r1v==null) ? '' : this.symbolFor(r1v, null, true, true);
+              const r2s = (r2v==null) ? '' : this.symbolFor(r2v, r1v, true, false);
+              // Pour r3, l’indicateur de spare se fait par rapport à r2 uniquement si r1 != 10 et r1+r2 == 10,
+              // sinon symbole standard (X/-/nombre).
+              let r3s = '';
+              if (r3v != null) {
+                if (r1v !== 10 && r1v != null && r2v != null && (r1v + r2v === 10)) {
+                  // bonus après spare -> r3 affiché normalement (X/-/num)
+                  r3s = this.symbolFor(r3v, null, true, true);
+                } else {
+                  r3s = this.symbolFor(r3v, r2v, true, false);
+                }
+              }
+              cell.r1.setAttribute('text', 'value', r1s);
+              cell.r2.setAttribute('text', 'value', r2s);
+              cell.r3.setAttribute('text', 'value', r3s);
+              cell.r3.setAttribute('text', 'opacity', 1);
+            }
+
+            // Cumul
+            const cumTxt = (data.cum == null) ? '' : String(data.cum);
+            cell.cum.setAttribute('text', 'value', cumTxt);
+          }
+        },
+
+        // essaie de repérer la frame en cours pour surligner
+        activeFrameIndex() {
+          // Compte frames complètes à partir des lancers
+          let i = 0, frameIdx = 0;
+          for (; frameIdx < 9 && i < this.rolls.length; frameIdx++) {
+            if (this.rolls[i] === 10) i += 1; else i += 2;
+            if (i > this.rolls.length) break;
+          }
+          return Math.min(frameIdx, 9);
+        }
+      });
+
     </script>
 
     </head>
@@ -569,7 +834,7 @@
         vr-mode-ui="enabled: true"
         device-orientation-permission-ui="enabled: true"
         physics="gravity: -9.8; debug: false"
-        score-keeper="balls: .bowling-ball; pins: #pins; board: #score-text; settleMs: 2500; tiltDeg: 25">
+        score-keeper="balls: .bowling-ball; pins: #pins; board: #score-text; settleMs: 3000; tiltDeg: 25">
         <!-- Assets -->
         <a-assets>
 
@@ -726,6 +991,12 @@
           <a-entity id="score-text" text="value: Score: 0; align: center; color: #0f0; width: 1.8"
                     position="0 0 0.01"></a-entity>
         </a-entity>
+        <!-- Tableau de score style bowling (au-dessus du panneau actuel) -->
+        <a-entity id="score-table"
+                  position="2 1.55 -2" rotation="0 -30 0"
+                  bowling-scoreboard="cols:10; cellW:0.18; cellH:0.10; gap:0.006">
+        </a-entity>
+
 
         <a-entity id="ball-and-boxes" position="0 0 0.4">
           <!-- Box contenant balle facile-->
