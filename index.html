@@ -586,6 +586,7 @@
             this.refresh();
           };
           this.onHardReset = () => { this.resetAll(); };
+          this.onScoreReset = () => { this.resetAll(); };
 
           this.el.sceneEl.addEventListener('score:roll',  this.onRoll);
           this.el.sceneEl.addEventListener('hard-reset',  this.onHardReset);
