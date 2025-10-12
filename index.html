@@ -180,182 +180,182 @@
       AFRAME.registerComponent('score-keeper', {
         schema: {
           balls:   {type: 'selectorAll', default: '.bowling-ball'},
-          pins:    {type: 'selector', default: '#pins'},
-          board:   {type: 'selector', default: '#score-text'},
+          pins:    {type: 'selector',    default: '#pins'},
+          board:   {type: 'selector',    default: '#score-text'},
           settleMs:{type: 'int',    default: 2500},
           tiltDeg: {type: 'number', default: 25},
           speedThresh: {type: 'number', default: 0.05},
           maxFrames:   {type: 'int',    default: 10},
-          ballReturnMs:{type: 'int',    default: 1800}, // retour auto pour 2e lancer
-          nextFrameMs: {type: 'int',    default: 2000},  // délai avant passage auto à la frame suivante
-          throwSpeedMin: {type: 'number', default: 0.8},   // vitesse min à la relâche
-          throwDirZMin:  {type: 'number', default: -0.2},  // composante z négative min (vers les quilles)
-          throwWindowMs: {type: 'int',    default: 1500},  // temps max pour franchir la ligne
-          foulLineZ:     {type: 'number', default: -1.2}   // ta ligne de faute
+          ballReturnMs:{type: 'int',    default: 1800},
+          nextFrameMs: {type: 'int',    default: 2000},
+          throwSpeedMin: {type: 'number', default: 0.8},
+          throwDirZMin:  {type: 'number', default: -0.2},
+          throwWindowMs: {type: 'int',    default: 1500},
+          foulLineZ:     {type: 'number', default: -1.2}
         },
 
         init() {
+          // --- État ---
           this.frame = 1;
           this.roll  = 1;
           this.fallenSet = new Set();
           this.frameComplete = false;
 
-          this.timer = null;         // settle timer fin de lancer
-          this.ballTimer = null;     // retour auto balle
-          this.nextFrameTimer = null;// timer passage frame auto
+          this.timer = null;
+          this.ballTimer = null;
+          this.nextFrameTimer = null;
           this.awaitingSettle = false;
-          this.candidateThrow = null; // {ball, t0}
+          this.candidateThrow = null;
 
-          this.pinEls = Array.from(this.data.pins.querySelectorAll('a-cylinder'));
-          this.pinEls.forEach((p, i) => { if (!p.dataset.idx) p.dataset.idx = String(i+1); });
-
-          // --- [AJOUT] mémorise les filtres de collision initiaux des quilles ---
-          this.pinFilterDefaults = new WeakMap();
-          this.pinEls.forEach(p => {
-            const stash = () => {
-              const b = p.body;
-              if (!b) return;
-              this.pinFilterDefaults.set(p, {
-                group: b.collisionFilterGroup,
-                mask:  b.collisionFilterMask
-              });
-            };
-            if (p.body) stash();
-            else p.addEventListener('body-loaded', stash, {once:true});
-          });
-
-          this.ballEls = Array.from(this.data.balls || []);
-          this.currentBall = null; // dernière balle utilisée
+          this.pinEls  = [];          // (résolus plus tard)
+          this.ballEls = [];          // (résolus plus tard)
+          this.currentBall = null;
           this.isRolling = false;
-          this.hitAccum = 0;       // puissance max des impacts cumulés
-          this.hitTimer = null;    // debounce pour regrouper plusieurs collisions proches
+          this.hitAccum = 0;
+          this.hitTimer = null;
 
-          this.queuePinHit = (powerNorm) => {
-            // on garde le max (son « le plus fort » dans la rafale)
-            this.hitAccum = Math.max(this.hitAccum, powerNorm);
-            if (this.hitTimer) return;     // déjà prévu → on attend la lecture groupée
-            this.hitTimer = setTimeout(() => {
-              const b = this.currentBall;
-              if (b) {
-                const vol = THREE.MathUtils.clamp(0.25 + 0.75 * this.hitAccum, 0, 1); // 0.25–1.0
-                b.setAttribute('sound__pins', 'volume', vol);
-                b.components['sound__pins']?.playSound(); // 🔊 un seul son, à la position de la balle
-              }
-              this.hitAccum = 0;
-              this.hitTimer = null;
-            }, 80); // fenêtre (~80 ms) pour regrouper plusieurs collisions
-          };
-
-          // helper: lire vitesse (m/s)
+          // --- Helpers ---
           this.getSpeed = (el) => {
             const v = el?.body?.velocity; if (!v) return 0;
             return Math.hypot(v.x, v.y, v.z);
           };
 
-          // helper: démarrer/stopper le loop de roulement
           this.updateRollingSound = () => {
             const b = this.currentBall;
             if (!b) return;
             const speed = this.getSpeed(b);
-
-            // heuristique: sur la piste (basse altitude) et assez vite
             const onLane = (b.object3D.position.y < 0.30);
             const wantPlay = onLane && speed > 0.25;
-
             const roll = b.components['sound__roll'];
             if (!roll) return;
-
             if (wantPlay && !this.isRolling) { roll.playSound(); this.isRolling = true; }
             if (!wantPlay && this.isRolling) { roll.stopSound(); this.isRolling = false; }
           };
 
-          // balle touche une quille -> timer de settle
-          // écoute collisions pour TOUTES les balles
+          this.queuePinHit = (powerNorm) => {
+            this.hitAccum = Math.max(this.hitAccum, powerNorm);
+            if (this.hitTimer) return;
+            this.hitTimer = setTimeout(() => {
+              const b = this.currentBall;
+              if (b) {
+                const vol = THREE.MathUtils.clamp(0.25 + 0.75 * this.hitAccum, 0, 1);
+                b.setAttribute('sound__pins', 'volume', vol);
+                b.components['sound__pins']?.playSound();
+              }
+              this.hitAccum = 0;
+              this.hitTimer = null;
+            }, 80);
+          };
+
+          // --- Handlers liés aux balles ---
           this.onBallCollide = (e) => {
-            const ballEl = e.target; // la balle qui a émis l'event
+            const ballEl = e.target;
             const other  = e.detail?.body?.el;
             if (!other) return;
             if (this.pinEls.includes(other)) {
-              this.currentBall = ballEl;  // mémorise la balle active
-              // impact energy ~ masse_balle * |v|
+              this.currentBall = ballEl;
               const v = this.getSpeed(ballEl);
-              const powerNorm = THREE.MathUtils.clamp(v / 4.0, 0, 1); // ajuste 4.0 selon ta scène
+              const powerNorm = THREE.MathUtils.clamp(v / 4.0, 0, 1);
               if (powerNorm > 0.1) this.queuePinHit(powerNorm);
               this.armSettleTimer();
             }
           };
 
-          // mémoriser la balle quand on la saisit
           this.onGrabStart = (e) => { this.currentBall = e.target; };
+
           this.onGrabEnd = (e) => {
             const b = e.target;
-
-            // petit délai pour laisser la physique donner sa vitesse
             setTimeout(() => {
               const v = b?.body?.velocity;
               const speed = this.getSpeed(b);
-
-              // son de lancer si assez rapide
               if (speed > 0.4) b.components['sound__throw']?.playSound();
-
-              // <<< NEW: candidature de lancer — assez rapide, vers -Z, près du sol
               const okSpeed = speed >= this.data.throwSpeedMin;
               const okDir   = v && (v.z <= this.data.throwDirZMin);
-              const okAlt   = b.object3D.position.y < 0.5; // sur la piste / proche
-
+              const okAlt   = b.object3D.position.y < 0.5;
               if (okSpeed && okDir && okAlt) {
                 this.candidateThrow = { ball: b, t0: performance.now() };
               }
             }, 20);
           };
 
-
-          // brancher les écouteurs sur chaque balle
-          this.ballEls.forEach(b => {
+          // --- câblage différé : on résout boules/quilles après chargement ---
+          const wireBall = (b) => {
+            if (!b || b.__wiredScoreKeeper) return;
+            b.__wiredScoreKeeper = true;
             b.addEventListener('collide', this.onBallCollide);
-            b.addEventListener('grab-start', this.onGrabStart); // super-hands
+            b.addEventListener('grab-start', this.onGrabStart);
             b.addEventListener('grab-end',   this.onGrabEnd);
-          });
+          };
 
-          // pour tester l'immobilité, on regarde la balle active
+          const resolvePins = () => {
+            const pinsRoot = this.data.pins || document.querySelector('#pins');
+            this.pinEls = pinsRoot ? Array.from(pinsRoot.querySelectorAll('a-cylinder')) : [];
+            this.pinEls.forEach((p, i) => { if (!p.dataset.idx) p.dataset.idx = String(i+1); });
+            // mémorise filtres collisions initiaux
+            this.pinFilterDefaults = this.pinFilterDefaults || new WeakMap();
+            this.pinEls.forEach(p => {
+              if (this.pinFilterDefaults.has(p)) return;
+              const stash = () => {
+                const b = p.body; if (!b) return;
+                this.pinFilterDefaults.set(p, {
+                  group: b.collisionFilterGroup,
+                  mask:  b.collisionFilterMask
+                });
+              };
+              p.body ? stash() : p.addEventListener('body-loaded', stash, {once:true});
+            });
+          };
+
+          const resolveBalls = () => {
+            // si l’attribut a donné quelque chose, on l’utilise, sinon on re-sélectionne globalement
+            const fromAttr = this.data.balls && this.data.balls.length ? Array.from(this.data.balls) : [];
+            this.ballEls = fromAttr.length ? fromAttr : Array.from(document.querySelectorAll('.bowling-ball'));
+            this.ballEls.forEach(wireBall);
+          };
+
+          const resolveAndWire = () => {
+            resolvePins();
+            resolveBalls();
+            if (!this.ballEls.length || !this.pinEls.length) {
+              console.warn('[score-keeper] attente des entités… balls=', this.ballEls.length, 'pins=', this.pinEls.length);
+            }
+          };
+
+          // 1) très vite après le cycle courant (DOM enfants déjà créés)
+          setTimeout(resolveAndWire, 0);
+          // 2) une fois que la scène/les assets sont vraiment prêts
+          this.el.addEventListener('loaded', resolveAndWire);
+          this.el.sceneEl?.addEventListener('loaded', resolveAndWire);
+
+          // --- tick (inchangé, avec la promotion de "candidature" de lancer) ---
           this.tick = () => {
-            // rolling loop
             this.updateRollingSound();
-
-            // <<< NEW: promotion d'une "candidature" en vrai lancer si la balle franchit la ligne
             if (this.candidateThrow) {
               const { ball, t0 } = this.candidateThrow;
               const now = performance.now();
-
               const pos = ball.object3D.position;
               const speed = this.getSpeed(ball);
-
-              // 1) Annule si la balle "meurt" avant de franchir la ligne
               const expired = (now - t0) > this.data.throwWindowMs;
-              const slowed  = speed < 0.25; // un peu au-dessus de speedThresh pour la phase de départ
+              const slowed  = speed < 0.25;
               if ((expired || slowed) && pos.z > this.data.foulLineZ) {
-                this.candidateThrow = null; // pas un vrai lancer
+                this.candidateThrow = null;
               }
-
-              // 2) Valide si la balle franchit la ligne de faute
               if (pos.z <= this.data.foulLineZ) {
-                this.currentBall = ball;          // balle active
-                this.candidateThrow = null;       // consommée
-                this.armSettleTimer();            // on arme le timer même sans contact quille
-                this.awaitingSettle = true;       // et on surveille l'immobilité
+                this.currentBall = ball;
+                this.candidateThrow = null;
+                this.armSettleTimer();
+                this.awaitingSettle = true;
               }
             }
-
-            // logique d'évaluation (immobilité)
             if (!this.awaitingSettle || !this.currentBall?.body) return;
-            const speed = this.getSpeed(this.currentBall);
-            if (speed < this.data.speedThresh) this.evaluateNow();
+            if (this.getSpeed(this.currentBall) < this.data.speedThresh) this.evaluateNow();
           };
 
-          // HARD RESET (bouton) : tout l'état repart à zéro (comme refresh)
+          // bouton HARD RESET
           this.onHardReset = () => { this.fullResetState(); };
           this.el.sceneEl.addEventListener('hard-reset', this.onHardReset);
 
+          // init panneau
           this.updateBoard({thisRoll: 0, totalDown: 0, tag: ''});
         },
 
@@ -363,11 +363,14 @@
           this.ballEls.forEach(b => {
             b.removeEventListener('collide', this.onBallCollide);
             b.removeEventListener('grab-start', this.onGrabStart);
+            b.removeEventListener('grab-end',   this.onGrabEnd);
+            b.__wiredScoreKeeper = false;
           });
           this.el.sceneEl.removeEventListener('hard-reset', this.onHardReset);
           this.clearTimer();
           this.clearBallTimer();
           this.clearNextFrameTimer();
+          this.candidateThrow = null;
         },
 
         // ---- timers
@@ -392,20 +395,17 @@
         },
         getDownPins() { return this.pinEls.filter(p => !this.isUpright(p)); },
 
-        // Convertit une position MONDE -> LOCALE puis déplace l'entité + son body
+        // Déplacement monde->local + physique
         moveEntityToWorld(el, worldPos, quat=null) {
-          // partie visuelle
           const parent = el.object3D.parent;
           const local = worldPos.clone();
           if (parent) parent.worldToLocal(local);
           el.object3D.position.copy(local);
           if (quat) el.object3D.quaternion.copy(quat);
           el.object3D.updateMatrixWorld(true);
-
-          // partie physique
           const body = el.body;
           if (body) {
-            const p = worldPos.clone(); p.y += 0.002; // petit lift anti-interpénétration
+            const p = worldPos.clone(); p.y += 0.002;
             if (body.position) body.position.set(p.x, p.y, p.z);
             if (quat && body.quaternion) body.quaternion.set(quat.x, quat.y, quat.z, quat.w);
             if (body.velocity) body.velocity.set(0,0,0);
@@ -414,115 +414,88 @@
           }
         },
 
-        // --- [AJOUT] rendre une quille traversable (aucun contact/événement)
         ghostifyPin(pinEl) {
           const b = pinEl.body; if (!b) return;
           b.collisionResponse = false;
-          b.collisionFilterMask = 0; // collide avec rien
+          b.collisionFilterMask = 0;
           if (b.velocity) b.velocity.set(0,0,0);
           if (b.angularVelocity) b.angularVelocity.set(0,0,0);
         },
-
-        // --- [AJOUT] restaurer les collisions d’une quille
         restorePin(pinEl) {
           const b = pinEl.body; if (!b) return;
-          const def = this.pinFilterDefaults.get(pinEl);
+          const def = this.pinFilterDefaults?.get(pinEl);
           if (def) {
             b.collisionFilterGroup = def.group;
             b.collisionFilterMask  = def.mask;
           } else {
-            // fallback : tout autoriser
             b.collisionFilterGroup = 1;
             b.collisionFilterMask  = -1;
           }
           b.collisionResponse = true;
         },
+        restoreAllPins() { this.pinEls.forEach(p => this.restorePin(p)); },
 
-        // --- [AJOUT] restaurer toutes les quilles
-        restoreAllPins() {
-          this.pinEls.forEach(p => this.restorePin(p));
-        },
-
-        // Aligne en grille derrière le mur les quilles tombées au 1er lancer
         parkFallenPins() {
-          // base MONDE derrière le mur (le tien est vers z≈-5.5)
-          const base = new THREE.Vector3(1.0, 0.05, -6.2); // x≈axe de la piste, z derrière
-          const dx = 0.16, dz = 0.34;                      // entraxes de la grille
+          const base = new THREE.Vector3(1.0, 0.05, -6.2);
+          const dx = 0.16, dz = 0.34;
           let i = 0;
-          // On utilise l'ordre stable des quilles tombées
           const fallen = Array.from(this.fallenSet);
           fallen.forEach(pinEl => {
-            // si finalement elle est debout (rare), on ne la range pas
             if (this.isUpright(pinEl)) return;
-            const col = i % 5;         // 5 par rangée
+            const col = i % 5;
             const row = (i / 5) | 0;
             const target = base.clone();
-            target.x += (col - 2) * dx; // centré autour de la piste
-            target.z -= row * dz;       // plusieurs rangées si besoin
-            // on garde l’orientation actuelle (couchée) ; ou remet debout:
-            // const quat = new THREE.Quaternion(); // (laisse null pour conserver)
+            target.x += (col - 2) * dx;
+            target.z -= row * dz;
             this.moveEntityToWorld(pinEl, target, null);
             i++;
-
-            // --- [AJOUT] quille rangée = quille "fantôme"
             this.ghostifyPin(pinEl);
           });
         },
 
-        // ---- fin de lancer
         evaluateNow() {
-        if (this.frameComplete) return;
-        this.clearTimer();
-        this.awaitingSettle = false;
+          if (this.frameComplete) return;
+          this.clearTimer();
+          this.awaitingSettle = false;
 
-        const downNow = this.getDownPins();
-        const downSetNow = new Set(downNow);
-        const thisRollKnocked = downNow.filter(p => !this.fallenSet.has(p)).length;
-        const totalDown = new Set([...this.fallenSet, ...downSetNow]).size;
+          const downNow = this.getDownPins();
+          const downSetNow = new Set(downNow);
+          const thisRollKnocked = downNow.filter(p => !this.fallenSet.has(p)).length;
+          const totalDown = new Set([...this.fallenSet, ...downSetNow]).size;
 
-        let tag = '';
-        if (this.roll === 1 && totalDown === 10) tag = 'STRIKE!';
-        if (this.roll === 2 && totalDown === 10) tag = 'SPARE!';
-        this.updateBoard({thisRoll: thisRollKnocked, totalDown, tag});
-        const announcer = document.querySelector('#announcer');
-        if (tag === 'STRIKE!') announcer?.components['sound__strike']?.playSound();
-        if (tag === 'SPARE!')  announcer?.components['sound__spare']?.playSound();
+          let tag = '';
+          if (this.roll === 1 && totalDown === 10) tag = 'STRIKE!';
+          if (this.roll === 2 && totalDown === 10) tag = 'SPARE!';
+          this.updateBoard({thisRoll: thisRollKnocked, totalDown, tag});
+          const announcer = document.querySelector('#announcer');
+          if (tag === 'STRIKE!') announcer?.components['sound__strike']?.playSound();
+          if (tag === 'SPARE!')  announcer?.components['sound__spare']?.playSound();
 
-        // persiste tombées
-        downSetNow.forEach(p => this.fallenSet.add(p));
+          downSetNow.forEach(p => this.fallenSet.add(p));
 
-        // --- NEW: prévenir le tableau de score ---
-        this.el.sceneEl.emit('score:roll', {
-          pins: thisRollKnocked,
-          frame: this.frame,
-          roll:  this.roll
-        });
+          this.el.sceneEl.emit('score:roll', {
+            pins: thisRollKnocked,
+            frame: this.frame,
+            roll:  this.roll
+          });
 
-        // avance d'état + automatisme
-        if (this.roll === 1) {
-          if (totalDown === 10) {
-            // STRIKE -> frame finie -> passage auto à la frame suivante
+          if (this.roll === 1) {
+            if (totalDown === 10) {
+              this.frameComplete = true;
+              this.clearBallTimer();
+              this.scheduleNextFrame();
+            } else {
+              this.roll = 2;
+              this.scheduleBallReturn();
+              this.parkFallenPins();
+            }
+          } else {
             this.frameComplete = true;
             this.clearBallTimer();
             this.scheduleNextFrame();
-          } else {
-            // on passe au 2e lancer
-            this.roll = 2;
-            // retour auto de la balle
-            this.scheduleBallReturn();
-            // 🧹 ranger les quilles tombées du 1er lancer
-            this.parkFallenPins();
           }
-        } else {
-          // fin du 2e lancer -> frame finie -> passage auto
-          this.frameComplete = true;
-          this.clearBallTimer();
-          this.scheduleNextFrame();
-        }
-      },
+        },
 
-
-        // Retour auto : reset uniquement la balle "active", fallback sur la 1re si besoin
         scheduleBallReturn() {
           this.clearBallTimer();
           this.ballTimer = setTimeout(() => {
@@ -534,23 +507,17 @@
           }, this.data.ballReturnMs);
         },
 
-        // Passage de frame : reset toutes les balles + quilles
         scheduleNextFrame() {
           this.clearNextFrameTimer();
           this.nextFrameTimer = setTimeout(() => {
             this.isRolling = false;
             this.currentBall?.components['sound__roll']?.stopSound();
-
-            // --- [AJOUT] réactive les collisions des quilles pour la prochaine frame ---
             this.restoreAllPins();
-
-            // reset visuel/physique
             [...document.querySelectorAll('[resettable]')].forEach(e => e.components.resettable?.resetNow());
             this.advanceFrame();
           }, this.data.nextFrameMs);
         },
 
-        // ---- affichage
         updateBoard({thisRoll, totalDown, tag}) {
           const left = `Tour: ${this.frame}  Lancer: ${this.roll}`;
           const right = `+${thisRoll} (total ${totalDown}/10)`;
@@ -558,7 +525,6 @@
           this.data.board.setAttribute('text', 'value', `${left} —\n ${right}\n${extra}`);
         },
 
-        // ---- avance d'une frame (appelé par scheduleNextFrame)
         advanceFrame() {
           this.fallenSet.clear();
           this.frameComplete = false;
@@ -568,7 +534,6 @@
           this.updateBoard({thisRoll: 0, totalDown: 0, tag: ''});
         },
 
-        // ---- hard reset (remise à zéro complète de la partie)
         fullResetState() {
           this.clearTimer();
           this.clearBallTimer();
@@ -580,14 +545,14 @@
           this.frame = 1;
           this.roll  = 1;
 
-          // --- [AJOUT] en cas de RESET : on remet les quilles "normales"
           this.restoreAllPins();
-
           this.updateBoard({thisRoll: 0, totalDown: 0, tag: ''});
           this.isRolling = false;
           this.currentBall?.components['sound__roll']?.stopSound();
+          this.candidateThrow = null;
         }
       });
+
 
 
 
