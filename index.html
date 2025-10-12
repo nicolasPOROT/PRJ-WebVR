@@ -187,7 +187,11 @@
           speedThresh: {type: 'number', default: 0.05},
           maxFrames:   {type: 'int',    default: 10},
           ballReturnMs:{type: 'int',    default: 1800}, // retour auto pour 2e lancer
-          nextFrameMs: {type: 'int',    default: 2000}  // délai avant passage auto à la frame suivante
+          nextFrameMs: {type: 'int',    default: 2000},  // délai avant passage auto à la frame suivante
+          throwSpeedMin: {type: 'number', default: 0.8},   // vitesse min à la relâche
+          throwDirZMin:  {type: 'number', default: -0.2},  // composante z négative min (vers les quilles)
+          throwWindowMs: {type: 'int',    default: 1500},  // temps max pour franchir la ligne
+          foulLineZ:     {type: 'number', default: -1.2}   // ta ligne de faute
         },
 
         init() {
@@ -200,6 +204,7 @@
           this.ballTimer = null;     // retour auto balle
           this.nextFrameTimer = null;// timer passage frame auto
           this.awaitingSettle = false;
+          this.candidateThrow = null; // {ball, t0}
 
           this.pinEls = Array.from(this.data.pins.querySelectorAll('a-cylinder'));
           this.pinEls.forEach((p, i) => { if (!p.dataset.idx) p.dataset.idx = String(i+1); });
@@ -284,12 +289,26 @@
           this.onGrabStart = (e) => { this.currentBall = e.target; };
           this.onGrabEnd = (e) => {
             const b = e.target;
+
             // petit délai pour laisser la physique donner sa vitesse
             setTimeout(() => {
+              const v = b?.body?.velocity;
               const speed = this.getSpeed(b);
+
+              // son de lancer si assez rapide
               if (speed > 0.4) b.components['sound__throw']?.playSound();
+
+              // <<< NEW: candidature de lancer — assez rapide, vers -Z, près du sol
+              const okSpeed = speed >= this.data.throwSpeedMin;
+              const okDir   = v && (v.z <= this.data.throwDirZMin);
+              const okAlt   = b.object3D.position.y < 0.5; // sur la piste / proche
+
+              if (okSpeed && okDir && okAlt) {
+                this.candidateThrow = { ball: b, t0: performance.now() };
+              }
             }, 20);
           };
+
 
           // brancher les écouteurs sur chaque balle
           this.ballEls.forEach(b => {
@@ -302,6 +321,30 @@
           this.tick = () => {
             // rolling loop
             this.updateRollingSound();
+
+            // <<< NEW: promotion d'une "candidature" en vrai lancer si la balle franchit la ligne
+            if (this.candidateThrow) {
+              const { ball, t0 } = this.candidateThrow;
+              const now = performance.now();
+
+              const pos = ball.object3D.position;
+              const speed = this.getSpeed(ball);
+
+              // 1) Annule si la balle "meurt" avant de franchir la ligne
+              const expired = (now - t0) > this.data.throwWindowMs;
+              const slowed  = speed < 0.25; // un peu au-dessus de speedThresh pour la phase de départ
+              if ((expired || slowed) && pos.z > this.data.foulLineZ) {
+                this.candidateThrow = null; // pas un vrai lancer
+              }
+
+              // 2) Valide si la balle franchit la ligne de faute
+              if (pos.z <= this.data.foulLineZ) {
+                this.currentBall = ball;          // balle active
+                this.candidateThrow = null;       // consommée
+                this.armSettleTimer();            // on arme le timer même sans contact quille
+                this.awaitingSettle = true;       // et on surveille l'immobilité
+              }
+            }
 
             // logique d'évaluation (immobilité)
             if (!this.awaitingSettle || !this.currentBall?.body) return;
