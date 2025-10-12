@@ -701,49 +701,75 @@
         computeFrames() {
           const frames = [];
           let i = 0;
+
           for (let f = 1; f <= 10; f++) {
             if (f < 10) {
-              const r1 = this.rolls[i]  ?? null;
+              const r1 = this.rolls[i] ?? null;
               const strike = (r1 === 10);
+
+              if (r1 == null) {
+                // Frame pas commencée
+                frames.push({ r1:null, r2:null, r3:null, score:null, kind:'open' });
+                break;
+              }
+
               if (strike) {
-                const bonus1 = this.rolls[i+1] ?? 0;
-                const bonus2 = this.rolls[i+2] ?? 0;
-                const score  = 10 + bonus1 + bonus2;
-                frames.push({r1:10, r2:null, r3:null, score, kind:'X'});
+                const b1 = this.rolls[i+1];
+                const b2 = this.rolls[i+2];
+                const ready = (b1 != null) && (b2 != null);
+                frames.push({
+                  r1: 10, r2: null, r3: null,
+                  score: ready ? 10 + b1 + b2 : null,
+                  kind: 'X'
+                });
                 i += 1;
               } else {
                 const r2 = this.rolls[i+1] ?? null;
-                if (r1 == null || r2 == null) {
-                  frames.push({r1, r2, r3:null, score:null, kind:'open'});
-                  break; // frame incomplète
+
+                if (r2 == null) {
+                  // Frame en cours (1er lancer connu, 2e pas encore)
+                  frames.push({ r1, r2:null, r3:null, score:null, kind:'open' });
+                  break;
                 }
+
                 const sum = r1 + r2;
                 if (sum === 10) {
-                  const bonus = this.rolls[i+2] ?? 0;
-                  frames.push({r1, r2, r3:null, score:10 + bonus, kind:'/'});
+                  // Spare -> bonus d’un lancer nécessaire
+                  const b = this.rolls[i+2];
+                  const ready = (b != null);
+                  frames.push({
+                    r1, r2, r3:null,
+                    score: ready ? 10 + b : null,
+                    kind: '/'
+                  });
                 } else {
-                  frames.push({r1, r2, r3:null, score:sum, kind:'open'});
+                  // Ouverte -> score immédiat
+                  frames.push({ r1, r2, r3:null, score: sum, kind:'open' });
                 }
                 i += 2;
               }
             } else {
-              // 10e frame : jusqu'à 3 lancers
+              // 10e frame : jusqu'à 3 lancers si strike/spare
               const r1 = this.rolls[i]   ?? null;
               const r2 = this.rolls[i+1] ?? null;
               let r3 = null;
-              if (r1 != null && r2 != null) {
-                const strikeOrSpare = (r1 === 10) || (r1 + r2 === 10);
-                if (strikeOrSpare) r3 = this.rolls[i+2] ?? null;
-              }
+              let score = null;
 
-              // score de la 10e = somme des lancers présents
-              const score = [r1, r2, r3].reduce((s,v)=>s+(v??0),0);
-              frames.push({r1, r2, r3, score: (r1!=null && r2!=null ? score : null), kind:'tenth'});
-              // pas d'incrément d'i ici : fin de parcours
+              if (r1 != null && r2 != null) {
+                const needsR3 = (r1 === 10) || (r1 + r2 === 10);
+                if (needsR3) {
+                  r3 = this.rolls[i+2] ?? null;
+                  if (r3 != null) score = r1 + r2 + r3; // complet
+                } else {
+                  score = r1 + r2; // frame complète sans bonus
+                }
+              }
+              frames.push({ r1, r2, r3, score, kind:'tenth' });
+              // pas d'incrément de i : fin du parcours
             }
           }
 
-          // cumul
+          // cumul : seulement quand la frame est vraiment scorée
           let running = 0;
           for (let k = 0; k < frames.length; k++) {
             if (frames[k].score != null) {
@@ -755,6 +781,7 @@
           }
           return frames;
         },
+
 
         refresh() {
           this.framesView = this.computeFrames();
