@@ -177,13 +177,14 @@
         }
       });
 
+
       AFRAME.registerComponent('score-keeper', {
         schema: {
           balls:   {type: 'selectorAll', default: '.bowling-ball'},
           pins:    {type: 'selector',    default: '#pins'},
           board:   {type: 'selector',    default: '#score-text'},
           settleMs:{type: 'int',    default: 2500},   // délai après contact quille
-          graceMs: {type: 'int',    default: 3800},   // ★ délai si pas de contact
+          graceMs: {type: 'int',    default: 3800},   // délai si pas de contact
           tiltDeg: {type: 'number', default: 25},
           speedThresh: {type: 'number', default: 0.05},
           maxFrames:   {type: 'int',    default: 10},
@@ -211,7 +212,8 @@
           this.hitAccum = 0;
           this.hitTimer = null;
 
-          this.settleDueAt = 0; // ★ échéance (timestamp) au plus tôt pour évaluer
+          this.settleDueAt = 0;              // échéance (timestamp) au plus tôt pour évaluer
+          this.phase = 'ready';              // 'ready' | 'rolling' | 'between'
 
           // --- pins / balls résolus après chargement ---
           this.pinEls = [];
@@ -273,15 +275,35 @@
             },80);
           };
 
+          // ★ helpers de phase : balle revenue à la zone de départ ?
+          this.isBallHome = (b) => {
+            if (!b?.object3D) return false;
+            const p = b.object3D.position;
+            const v = b?.body?.velocity || {x:0,y:0,z:0};
+            const speed = Math.hypot(v.x, v.y, v.z);
+            const inStartZone = p.z > -0.6 && p.y < 0.4; // ajuste si nécessaire
+            return inStartZone && speed < this.data.speedThresh;
+          };
+
+          this.rearmWhenReady = () => {
+            const anyHome = this.ballEls.some(b => this.isBallHome(b));
+            if (anyHome && !this.frameComplete) {
+              this.phase = 'ready';
+            } else {
+              setTimeout(() => { if (this.phase === 'between') this.rearmWhenReady(); }, 150);
+            }
+          };
+
           // --- handlers ball ---
           this.onBallCollide = (e) => {
+            if (this.phase === 'between') return; // ignorer pendant le retour/entre-lancers
             const ballEl=e.target, other=e.detail?.body?.el; if (!other) return;
             if (this.pinEls.includes(other)) {
               this.currentBall = ballEl;
               const v = this.getSpeed(ballEl);
               const powerNorm = THREE.MathUtils.clamp(v/4.0,0,1);
               if (powerNorm>0.1) this.queuePinHit(powerNorm);
-              // ★ contact quille => délai court
+              // contact quille => possible délai court
               this.armSettleTimer(this.data.settleMs);
             }
           };
@@ -289,6 +311,7 @@
           this.onGrabEnd = (e)=>{
             const b = e.target;
             setTimeout(()=>{
+              if (this.phase !== 'ready') return; // pas de nouveau lancer hors phase ready
               const v=b?.body?.velocity, speed=this.getSpeed(b);
               if (speed>0.4) b.components['sound__throw']?.playSound();
               const okSpeed = speed >= this.data.throwSpeedMin;
@@ -303,7 +326,7 @@
             this.updateRollingSound();
 
             // (A) Candidature -> franchit la ligne
-            if (this.candidateThrow) {
+            if (this.phase === 'ready' && this.candidateThrow) {
               const {ball,t0}=this.candidateThrow;
               const now=performance.now();
               const pos=ball.object3D.position;
@@ -314,18 +337,19 @@
               if (pos.z<=this.data.foulLineZ) {
                 this.currentBall=ball;
                 this.candidateThrow=null;
-                // ★ franchit la ligne sans contact : délai long
+                // franchit la ligne sans contact (pour l’instant) : délai long
                 this.armSettleTimer(this.data.graceMs);
               }
             }
 
-            // (B) Fallback : n’importe quelle balle franchit la ligne
-            if (!this.awaitingSettle && !this.frameComplete) {
+            // (B) Fallback : n’importe quelle balle franchit la ligne (en avançant)
+            if (this.phase === 'ready' && !this.awaitingSettle && !this.frameComplete) {
               for (const b of this.ballEls) {
                 if (!b?.object3D) continue;
-                if (b.object3D.position.z <= this.data.foulLineZ) {
+                const v = b?.body?.velocity;
+                const goingForward = v && (v.z <= this.data.throwDirZMin);
+                if (goingForward && b.object3D.position.z <= this.data.foulLineZ) {
                   this.currentBall = b;
-                  // ★ délai long
                   this.armSettleTimer(this.data.graceMs);
                   break;
                 }
@@ -361,13 +385,20 @@
         },
 
         // --- timers / outils d'état ---
-        // ★ accepte une durée et mémorise l’échéance
+        // accepte une durée et mémorise l’échéance + bascule phase
         armSettleTimer(ms) {
-          this.clearTimer();
           if (this.frameComplete) return;
+          if (this.phase !== 'ready' && this.phase !== 'rolling') {
+            // si on est "between", on n'arme pas
+            return;
+          }
+          // si on est encore "ready", on passe en "rolling"
+          if (this.phase === 'ready') this.phase = 'rolling';
+
+          this.clearTimer();
           const dur = (ms ?? this.data.settleMs);
           this.awaitingSettle = true;
-          this.settleDueAt = performance.now() + dur;   // ★
+          this.settleDueAt = performance.now() + dur;
           this.timer = setTimeout(()=>this.evaluateNow(), dur);
         },
         clearTimer(){ if(this.timer) clearTimeout(this.timer); this.timer=null; },
@@ -423,7 +454,8 @@
 
         evaluateNow(){
           if (this.frameComplete) return;
-          this.clearTimer(); this.awaitingSettle=false; this.settleDueAt = 0; // ★
+          this.phase = 'between';                 // on gèle tout nouveau lancer
+          this.clearTimer(); this.awaitingSettle=false; this.settleDueAt = 0;
 
           const downNow=this.getDownPins();
           const downSetNow=new Set(downNow);
@@ -457,6 +489,8 @@
             const toReset=this.currentBall || this.ballEls[0];
             toReset?.components.resettable?.resetNow();
             this.isRolling=false; this.currentBall?.components['sound__roll']?.stopSound();
+            this.phase = 'between';
+            setTimeout(() => this.rearmWhenReady(), 120);
           }, this.data.ballReturnMs);
         },
 
@@ -464,10 +498,12 @@
           this.clearNextFrameTimer();
           this.nextFrameTimer=setTimeout(()=>{
             this.isRolling=false; this.currentBall?.components['sound__roll']?.stopSound();
+            this.phase = 'between';
             this.restoreAllPins();
             [...document.querySelectorAll('[resettable]')].forEach(e=>e.components.resettable?.resetNow());
-            this.settleDueAt = 0; // ★ sécurité
+            this.settleDueAt = 0;
             this.advanceFrame();
+            setTimeout(() => { if (!this.frameComplete) this.phase = 'ready'; }, 120);
           }, this.data.nextFrameMs);
         },
 
@@ -486,17 +522,15 @@
 
         fullResetState(){
           this.clearTimer(); this.clearBallTimer(); this.clearNextFrameTimer();
-          this.awaitingSettle=false; this.settleDueAt = 0; // ★
+          this.awaitingSettle=false; this.settleDueAt = 0;
           this.fallenSet.clear(); this.frameComplete=false;
           this.frame=1; this.roll=1; this.restoreAllPins();
           this.updateBoard({thisRoll:0, totalDown:0, tag:''});
           this.isRolling=false; this.currentBall?.components['sound__roll']?.stopSound();
           this.candidateThrow=null;
+          this.phase = 'ready';
         }
       });
-
-
-
 
 
 
