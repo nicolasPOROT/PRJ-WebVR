@@ -462,15 +462,24 @@
           const thisRollKnocked = downNow.filter(p=>!this.fallenSet.has(p)).length;
           const totalDown = new Set([...this.fallenSet, ...downSetNow]).size;
 
-          let tag=''; 
-          if(this.roll===1 && totalDown===10) tag='STRIKE!'; 
-          if(this.roll===2 && totalDown===10) tag='SPARE!';
-          if(totalDown===0) tag='Gutter!';
+          let tag = '';
+          if (this.roll === 1 && totalDown === 10) {
+            tag = 'STRIKE!';
+          } else if (this.roll === 2 && totalDown === 10) {
+            tag = 'SPARE!';
+          } else if (thisRollKnocked === 0) {
+            tag = 'Gutter!';
+          }
+
           this.updateBoard({thisRoll:thisRollKnocked, totalDown, tag});
-          const announcer=document.querySelector('#announcer');
-          if(tag==='STRIKE!') announcer?.components['sound__strike']?.playSound();
-          if(tag==='SPARE!')  announcer?.components['sound__spare']?.playSound();
-          if(tag==='Gutter!')  announcer?.components['sound__gutter']?.playSound();
+
+          const announcer = document.querySelector('#announcer');
+          const play = (name) => { const c = announcer?.components[name]; if (c) { c.stopSound(); c.playSound(); } };
+
+          if (tag === 'STRIKE!')   play('sound__strike');
+          else if (tag === 'SPARE!')  play('sound__spare');
+          else if (tag === 'Gutter!') play('sound__gutter');
+
 
           downSetNow.forEach(p=>this.fallenSet.add(p));
           this.el.sceneEl.emit('score:roll',{ pins:thisRollKnocked, frame:this.frame, roll:this.roll });
@@ -1251,10 +1260,11 @@
 
 
         <a-entity id="announcer"
-          sound__strike="src: #sfx-strike; volume: 0.9; positional: false"
-          sound__spare="src: #sfx-spare;  volume: 0.8; positional: false"
-          sound__gutter="src: #sfx-gutter; volume: 0.7; positional: false">
+          sound__strike="src: #sfx-strike; volume: 0.9; positional: false; poolSize: 2"
+          sound__spare="src: #sfx-spare;  volume: 0.8; positional: false; poolSize: 2"
+          sound__gutter="src: #sfx-gutter; volume: 0.7; positional: false; poolSize: 2">
         </a-entity>
+
 
         <a-entity id="bgm"
           bgm-controller
