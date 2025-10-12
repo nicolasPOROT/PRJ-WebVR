@@ -182,7 +182,8 @@
           balls:   {type: 'selectorAll', default: '.bowling-ball'},
           pins:    {type: 'selector',    default: '#pins'},
           board:   {type: 'selector',    default: '#score-text'},
-          settleMs:{type: 'int',    default: 2500},
+          settleMs:{type: 'int',    default: 2500},   // délai après contact quille
+          graceMs: {type: 'int',    default: 3800},   // ★ délai si pas de contact
           tiltDeg: {type: 'number', default: 25},
           speedThresh: {type: 'number', default: 0.05},
           maxFrames:   {type: 'int',    default: 10},
@@ -210,7 +211,9 @@
           this.hitAccum = 0;
           this.hitTimer = null;
 
-          // --- pins / balls résolus après chargement (comme ta version précédente) ---
+          this.settleDueAt = 0; // ★ échéance (timestamp) au plus tôt pour évaluer
+
+          // --- pins / balls résolus après chargement ---
           this.pinEls = [];
           this.ballEls = [];
           const wireBall = (b) => {
@@ -278,7 +281,8 @@
               const v = this.getSpeed(ballEl);
               const powerNorm = THREE.MathUtils.clamp(v/4.0,0,1);
               if (powerNorm>0.1) this.queuePinHit(powerNorm);
-              this.armSettleTimer();
+              // ★ contact quille => délai court
+              this.armSettleTimer(this.data.settleMs);
             }
           };
           this.onGrabStart = (e)=>{ this.currentBall = e.target; };
@@ -294,11 +298,11 @@
             },20);
           };
 
-          // --- tick : AJOUT des garde-fous de ligne de faute ---
+          // --- tick : garde-fous ligne de faute + délais ---
           this.tick = () => {
             this.updateRollingSound();
 
-            // (A) Promotion d'une "candidature" si présente
+            // (A) Candidature -> franchit la ligne
             if (this.candidateThrow) {
               const {ball,t0}=this.candidateThrow;
               const now=performance.now();
@@ -310,27 +314,30 @@
               if (pos.z<=this.data.foulLineZ) {
                 this.currentBall=ball;
                 this.candidateThrow=null;
-                this.armSettleTimer();
-                this.awaitingSettle=true;
+                // ★ franchit la ligne sans contact : délai long
+                this.armSettleTimer(this.data.graceMs);
               }
             }
 
-            // (B) ★ Fallback universel : détecter toute balle qui franchit la ligne
+            // (B) Fallback : n’importe quelle balle franchit la ligne
             if (!this.awaitingSettle && !this.frameComplete) {
               for (const b of this.ballEls) {
                 if (!b?.object3D) continue;
                 if (b.object3D.position.z <= this.data.foulLineZ) {
                   this.currentBall = b;
-                  this.armSettleTimer();
-                  this.awaitingSettle = true;
+                  // ★ délai long
+                  this.armSettleTimer(this.data.graceMs);
                   break;
                 }
               }
             }
 
-            // (C) Évaluation quand la balle est quasi immobile (même sans contact quille)
+            // (C) Immobile -> possible évaluation, mais seulement après l’échéance
             if (this.awaitingSettle && this.currentBall?.body) {
-              if (this.getSpeed(this.currentBall) < this.data.speedThresh) this.evaluateNow();
+              const now = performance.now();
+              if (now >= this.settleDueAt && this.getSpeed(this.currentBall) < this.data.speedThresh) {
+                this.evaluateNow();
+              }
             }
           };
 
@@ -353,12 +360,15 @@
           this.candidateThrow=null;
         },
 
-        // --- timers / outils d'état (inchangés) ---
-        armSettleTimer() {
+        // --- timers / outils d'état ---
+        // ★ accepte une durée et mémorise l’échéance
+        armSettleTimer(ms) {
           this.clearTimer();
           if (this.frameComplete) return;
+          const dur = (ms ?? this.data.settleMs);
           this.awaitingSettle = true;
-          this.timer = setTimeout(()=>this.evaluateNow(), this.data.settleMs);
+          this.settleDueAt = performance.now() + dur;   // ★
+          this.timer = setTimeout(()=>this.evaluateNow(), dur);
         },
         clearTimer(){ if(this.timer) clearTimeout(this.timer); this.timer=null; },
         clearBallTimer(){ if(this.ballTimer) clearTimeout(this.ballTimer); this.ballTimer=null; },
@@ -413,7 +423,7 @@
 
         evaluateNow(){
           if (this.frameComplete) return;
-          this.clearTimer(); this.awaitingSettle=false;
+          this.clearTimer(); this.awaitingSettle=false; this.settleDueAt = 0; // ★
 
           const downNow=this.getDownPins();
           const downSetNow=new Set(downNow);
@@ -456,6 +466,7 @@
             this.isRolling=false; this.currentBall?.components['sound__roll']?.stopSound();
             this.restoreAllPins();
             [...document.querySelectorAll('[resettable]')].forEach(e=>e.components.resettable?.resetNow());
+            this.settleDueAt = 0; // ★ sécurité
             this.advanceFrame();
           }, this.data.nextFrameMs);
         },
@@ -475,13 +486,15 @@
 
         fullResetState(){
           this.clearTimer(); this.clearBallTimer(); this.clearNextFrameTimer();
-          this.awaitingSettle=false; this.fallenSet.clear(); this.frameComplete=false;
+          this.awaitingSettle=false; this.settleDueAt = 0; // ★
+          this.fallenSet.clear(); this.frameComplete=false;
           this.frame=1; this.roll=1; this.restoreAllPins();
           this.updateBoard({thisRoll:0, totalDown:0, tag:''});
           this.isRolling=false; this.currentBall?.components['sound__roll']?.stopSound();
           this.candidateThrow=null;
         }
       });
+
 
 
 
@@ -801,7 +814,7 @@
         vr-mode-ui="enabled: true"
         device-orientation-permission-ui="enabled: true"
         physics="gravity: -9.8; debug: false"
-        score-keeper="balls: .bowling-ball; pins: #pins; board: #score-text; settleMs: 2000; tiltDeg: 25; throwSpeedMin:0.8; throwDirZMin:-0.2; throwWindowMs:1500; foulLineZ:-1.2">
+        score-keeper="balls: .bowling-ball; pins: #pins; board: #score-text; settleMs: 2000; tiltDeg: 25; throwSpeedMin:0.8; throwDirZMin:-0.2; throwWindowMs:1500; foulLineZ:-1.2; settleMs: 2000; graceMs: 3800">
         <!-- Assets -->
         <a-assets>
 
