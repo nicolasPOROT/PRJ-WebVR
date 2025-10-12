@@ -675,130 +675,131 @@
                     position="0 0 0.01"></a-entity>
         </a-entity>
 
-        <!-- Box contenant balle facile-->
-         <a-entity id="ball-box" position="-0.1 0 0.24">
-           <!-- sol de la box -->
-          <a-box position="0 0.01 0.24" width="0.4" height="0.02" depth="0.4"
-                material="color:#666; metalness:0.3; roughness:0.8"
-                static-body="shape: box"></a-box>
-          <!-- murs de la box -->
-          <a-box position="0.2 0.15 0.24" width="0.02" height="0.3" depth="0.4"
-                material="color:#444"
-                static-body="shape: box"></a-box>
-          <a-box position="-0.2 0.15 0.24" width="0.02" height="0.3" depth="0.4"
-                material="color:#444"
-                static-body="shape: box"></a-box>
-          <a-box position="0 0.15 0.04" width="0.4" height="0.3" depth="0.02"
-                material="color:#444"
-                static-body="shape: box"></a-box>
-          <a-box position="0 0.15 0.44" width="0.4" height="0.3" depth="0.02"
-                material="color:#444"
-                static-body="shape: box"></a-box>
-          <a-entity position="-0.305 0.605 0.219" rotation="0 90 0">
-            <a-plane width="0.5" height="0.2" color="#222" opacity="0.8"></a-plane>
-            <a-entity text="value: Balle facile; align: center; color: #0f0; width: 1.4"
-                      position="0 0 0.01"></a-entity>
+        <a-entity id="ball-and-boxes" position="0 0 0.4">
+          <!-- Box contenant balle facile-->
+          <a-entity id="ball-box" position="-0.1 0 0.24">
+            <!-- sol de la box -->
+            <a-box position="0 0.01 0.24" width="0.4" height="0.02" depth="0.4"
+                  material="color:#666; metalness:0.3; roughness:0.8"
+                  static-body="shape: box"></a-box>
+            <!-- murs de la box -->
+            <a-box position="0.2 0.15 0.24" width="0.02" height="0.3" depth="0.4"
+                  material="color:#444"
+                  static-body="shape: box"></a-box>
+            <a-box position="-0.2 0.15 0.24" width="0.02" height="0.3" depth="0.4"
+                  material="color:#444"
+                  static-body="shape: box"></a-box>
+            <a-box position="0 0.15 0.04" width="0.4" height="0.3" depth="0.02"
+                  material="color:#444"
+                  static-body="shape: box"></a-box>
+            <a-box position="0 0.15 0.44" width="0.4" height="0.3" depth="0.02"
+                  material="color:#444"
+                  static-body="shape: box"></a-box>
+            <a-entity position="-0.305 0.605 0.219" rotation="0 90 0">
+              <a-plane width="0.5" height="0.2" color="#222" opacity="0.8"></a-plane>
+              <a-entity text="value: Balle facile; align: center; color: #0f0; width: 1.4"
+                        position="0 0 0.01"></a-entity>
+            </a-entity>
           </a-entity>
+
+          <!-- Box contenant balle moyenne-->
+          <a-entity id="ball-box" position="-0.1 0 0.75">
+            <!-- sol de la box -->
+              <a-box position="0 0.01 0.24" width="0.4" height="0.02" depth="0.4"
+                    material="color:#666; metalness:0.3; roughness:0.8"
+                    static-body="shape: box"></a-box>
+              <!-- murs de la box -->
+              <a-box position="0.2 0.15 0.24" width="0.02" height="0.3" depth="0.4"
+                    material="color:#444"
+                    static-body="shape: box"></a-box>
+              <a-box position="-0.2 0.15 0.24" width="0.02" height="0.3" depth="0.4"
+                    material="color:#444"
+                    static-body="shape: box"></a-box>
+              <a-box position="0 0.15 0.04" width="0.4" height="0.3" depth="0.02"
+                    material="color:#444"
+                    static-body="shape: box"></a-box>
+              <a-box position="0 0.15 0.44" width="0.4" height="0.3" depth="0.02"
+                    material="color:#444"
+                    static-body="shape: box"></a-box>
+              <a-entity position="-0.305 0.605 0.219" rotation="0 90 0">
+                <a-plane width="0.5" height="0.2" color="#222" opacity="0.8"></a-plane>
+                <a-entity text="value: Balle normal; align: center; color: #0f0; width: 1.4"
+                          position="0 0 0.01"></a-entity>
+              </a-entity>
+            </a-entity>
+
+            <!-- Box contenant balle difficile-->
+            <a-entity id="ball-box" position="-0.1 0 1.26">
+              <!-- sol de la box -->
+              <a-box position="0 0.01 0.24" width="0.4" height="0.02" depth="0.4"
+                    material="color:#666; metalness:0.3; roughness:0.8"
+                    static-body="shape: box"></a-box>
+              <!-- murs de la box -->
+              <a-box position="0.2 0.15 0.24" width="0.02" height="0.3" depth="0.4"
+                    material="color:#444"
+                    static-body="shape: box"></a-box>
+              <a-box position="-0.2 0.15 0.24" width="0.02" height="0.3" depth="0.4"
+                    material="color:#444"
+                    static-body="shape: box"></a-box>
+              <a-box position="0 0.15 0.04" width="0.4" height="0.3" depth="0.02"
+                    material="color:#444"
+                    static-body="shape: box"></a-box>
+              <a-box position="0 0.15 0.44" width="0.4" height="0.3" depth="0.02"
+                    material="color:#444"
+                    static-body="shape: box"></a-box>
+              <a-entity position="-0.305 0.605 0.219" rotation="0 90 0">
+                <a-plane width="0.5" height="0.2" color="#222" opacity="0.8"></a-plane>
+                <a-entity text="value: Balle impossible; align: center; color: #0f0; width: 1.4"
+                          position="0 0 0.01"></a-entity>
+              </a-entity>
+            </a-entity>
+
+            <!-- Disclaimer de prendre qu'une seule balle à la fois -->
+            <a-entity position="-0.413 0.976 0.983" rotation="0 90 0">
+              <a-plane width="1.4" height="0.2" color="#222" opacity="0.8"></a-plane>
+              <a-entity text="value: Prenez une seule balle à la fois!; align: center; color: #f00; width: 2"
+                        position="0 0 0.01"></a-entity>
+            </a-entity>
+          <!-- OBJETS SAISISSABLES (physiques) -->
+          <!-- Boules de bowling -->
+
+          <!-- facile -->
+          <a-sphere id="ball-easy" class="bowling-ball grabbable" resettable position="-0.081 0.170 0.408" radius="0.15" color="#EF2D5E"
+                    shadow="cast: true; receive: true" opacity="0"
+                    grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+                    dynamic-body="mass: 10; shape: sphere"
+                    sound__throw="src: #sfx-throw; volume: 0.7; poolSize: 3"
+                    sound__roll="src: #sfx-roll; loop: true; volume: 0.5; poolSize: 1; refDistance: 0.8; rolloffFactor: 1.5"
+                    sound__pins="src: #sfx-pin; volume: 0.7; poolSize: 3; refDistance: 1; rolloffFactor: 1.5">
+                    <a-entity id="ballmodel" gltf-model="#bowlingball" position="-0.013 0.014 0.008" scale="0.19 0.19 0.19"></a-entity>
+          </a-sphere>
+
+            <!-- moyen -->
+          <a-sphere id="ball-medium" class="bowling-ball grabbable" resettable position="-0.081 0.170 0.918" radius="0.1" color="#EF2D5E"
+                    shadow="cast: true; receive: true" opacity="0"
+                    grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+                    dynamic-body="mass: 1; shape: sphere"
+                    sound__throw="src: #sfx-throw; volume: 0.7; poolSize: 3"
+                    sound__roll="src: #sfx-roll; loop: true; volume: 0.5; poolSize: 1; refDistance: 0.8; rolloffFactor: 1.5"
+                    sound__pins="src: #sfx-pin; volume: 0.7; poolSize: 3; refDistance: 1; rolloffFactor: 1.5">
+                    <a-entity id="ballmodel" gltf-model="#bowlingball" position="-0.013 0.014 0.008" scale="0.126 0.126 0.126"></a-entity>
+          </a-sphere>
+
+            <!-- difficile -->
+          <a-sphere id="ball-hard" class="bowling-ball grabbable" resettable position="-0.081 0.170 1.428" radius="0.05" color="#EF2D5E"
+                    shadow="cast: true; receive: true" opacity="0"
+                    grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
+                    dynamic-body="mass: 0.1; shape: sphere"
+                    sound__throw="src: #sfx-throw; volume: 0.7; poolSize: 3"
+                    sound__roll="src: #sfx-roll; loop: true; volume: 0.5; poolSize: 1; refDistance: 0.8; rolloffFactor: 1.5"
+                    sound__pins="src: #sfx-pin; volume: 0.7; poolSize: 3; refDistance: 1; rolloffFactor: 1.5">
+                    <a-entity id="ballmodel" gltf-model="#bowlingball" position="-0.013 0.014 0.008" scale="0.063 0.063 0.063"></a-entity>
+          </a-sphere>
         </a-entity>
-
-        <!-- Box contenant balle moyenne-->
-         <a-entity id="ball-box" position="-0.1 0 0.75">
-           <!-- sol de la box -->
-          <a-box position="0 0.01 0.24" width="0.4" height="0.02" depth="0.4"
-                material="color:#666; metalness:0.3; roughness:0.8"
-                static-body="shape: box"></a-box>
-          <!-- murs de la box -->
-          <a-box position="0.2 0.15 0.24" width="0.02" height="0.3" depth="0.4"
-                material="color:#444"
-                static-body="shape: box"></a-box>
-          <a-box position="-0.2 0.15 0.24" width="0.02" height="0.3" depth="0.4"
-                material="color:#444"
-                static-body="shape: box"></a-box>
-          <a-box position="0 0.15 0.04" width="0.4" height="0.3" depth="0.02"
-                material="color:#444"
-                static-body="shape: box"></a-box>
-          <a-box position="0 0.15 0.44" width="0.4" height="0.3" depth="0.02"
-                material="color:#444"
-                static-body="shape: box"></a-box>
-          <a-entity position="-0.305 0.605 0.219" rotation="0 90 0">
-            <a-plane width="0.5" height="0.2" color="#222" opacity="0.8"></a-plane>
-            <a-entity text="value: Balle normal; align: center; color: #0f0; width: 1.4"
-                      position="0 0 0.01"></a-entity>
-          </a-entity>
-        </a-entity>
-
-        <!-- Box contenant balle difficile-->
-         <a-entity id="ball-box" position="-0.1 0 1.26">
-           <!-- sol de la box -->
-          <a-box position="0 0.01 0.24" width="0.4" height="0.02" depth="0.4"
-                material="color:#666; metalness:0.3; roughness:0.8"
-                static-body="shape: box"></a-box>
-          <!-- murs de la box -->
-          <a-box position="0.2 0.15 0.24" width="0.02" height="0.3" depth="0.4"
-                material="color:#444"
-                static-body="shape: box"></a-box>
-          <a-box position="-0.2 0.15 0.24" width="0.02" height="0.3" depth="0.4"
-                material="color:#444"
-                static-body="shape: box"></a-box>
-          <a-box position="0 0.15 0.04" width="0.4" height="0.3" depth="0.02"
-                material="color:#444"
-                static-body="shape: box"></a-box>
-          <a-box position="0 0.15 0.44" width="0.4" height="0.3" depth="0.02"
-                material="color:#444"
-                static-body="shape: box"></a-box>
-          <a-entity position="-0.305 0.605 0.219" rotation="0 90 0">
-            <a-plane width="0.5" height="0.2" color="#222" opacity="0.8"></a-plane>
-            <a-entity text="value: Balle impossible; align: center; color: #0f0; width: 1.4"
-                      position="0 0 0.01"></a-entity>
-          </a-entity>
-        </a-entity>
-
-        <!-- Disclaimer de prendre qu'une seule balle à la fois -->
-        <a-entity position="-0.413 0.976 0.983" rotation="0 90 0">
-          <a-plane width="1.4" height="0.2" color="#222" opacity="0.8"></a-plane>
-          <a-entity text="value: Prenez une seule balle à la fois!; align: center; color: #f00; width: 2"
-                    position="0 0 0.01"></a-entity>
-        </a-entity>
-
-        <!-- OBJETS SAISISSABLES (physiques) -->
-        <!-- Boules de bowling -->
-
-         <!-- facile -->
-        <a-sphere id="ball-easy" class="bowling-ball grabbable" resettable position="-0.081 0.170 0.408" radius="0.2" color="#EF2D5E"
-                  shadow="cast: true; receive: true" opacity="0"
-                  grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
-                  dynamic-body="mass: 10; shape: sphere"
-                  sound__throw="src: #sfx-throw; volume: 0.7; poolSize: 3"
-                  sound__roll="src: #sfx-roll; loop: true; volume: 0.5; poolSize: 1; refDistance: 0.8; rolloffFactor: 1.5"
-                  sound__pins="src: #sfx-pin; volume: 0.7; poolSize: 3; refDistance: 1; rolloffFactor: 1.5">
-                  <a-entity id="ballmodel" gltf-model="#bowlingball" position="-0.013 0.014 0.008" scale="0.19 0.19 0.19"></a-entity>
-        </a-sphere>
-
-          <!-- moyen -->
-        <a-sphere id="ball-medium" class="bowling-ball grabbable" resettable position="-0.081 0.170 0.918" radius="0.1" color="#EF2D5E"
-                  shadow="cast: true; receive: true" opacity="0"
-                  grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
-                  dynamic-body="mass: 1; shape: sphere"
-                  sound__throw="src: #sfx-throw; volume: 0.7; poolSize: 3"
-                  sound__roll="src: #sfx-roll; loop: true; volume: 0.5; poolSize: 1; refDistance: 0.8; rolloffFactor: 1.5"
-                  sound__pins="src: #sfx-pin; volume: 0.7; poolSize: 3; refDistance: 1; rolloffFactor: 1.5">
-                  <a-entity id="ballmodel" gltf-model="#bowlingball" position="-0.013 0.014 0.008" scale="0.19 0.19 0.19"></a-entity>
-        </a-sphere>
-
-          <!-- difficile -->
-        <a-sphere id="ball-hard" class="bowling-ball grabbable" resettable position="-0.081 0.170 1.428" radius="0.01" color="#EF2D5E"
-                  shadow="cast: true; receive: true" opacity="0"
-                  grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
-                  dynamic-body="mass: 0.1; shape: sphere"
-                  sound__throw="src: #sfx-throw; volume: 0.7; poolSize: 3"
-                  sound__roll="src: #sfx-roll; loop: true; volume: 0.5; poolSize: 1; refDistance: 0.8; rolloffFactor: 1.5"
-                  sound__pins="src: #sfx-pin; volume: 0.7; poolSize: 3; refDistance: 1; rolloffFactor: 1.5">
-                  <a-entity id="ballmodel" gltf-model="#bowlingball" position="-0.013 0.014 0.008" scale="0.19 0.19 0.19"></a-entity>
-        </a-sphere>
 
         <!-- Quilles alignées façon bowling (1–2–3–4) -->
         <!-- Quilles bowling resserrées (écart entre lignes réduit) -->
-        <a-entity id="pins" rotation="0 0 0" position="0.045 0.3 -2.5">
+        <a-entity id="pins" rotation="0 0 0" position="0.045 0.1 -2.5">
           <a-cylinder class="grabbable" resettable position="1.0 0.1 -1.9" radius="0.05" height="0.3" color="#FFC65D"
             shadow="cast: true; receive: true" opacity="0"
             grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
