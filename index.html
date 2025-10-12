@@ -462,11 +462,15 @@
           const thisRollKnocked = downNow.filter(p=>!this.fallenSet.has(p)).length;
           const totalDown = new Set([...this.fallenSet, ...downSetNow]).size;
 
-          let tag=''; if(this.roll===1 && totalDown===10) tag='STRIKE!'; if(this.roll===2 && totalDown===10) tag='SPARE!';
+          let tag=''; 
+          if(this.roll===1 && totalDown===10) tag='STRIKE!'; 
+          if(this.roll===2 && totalDown===10) tag='SPARE!';
+          if(totalDown===0) tag='Gutter!';
           this.updateBoard({thisRoll:thisRollKnocked, totalDown, tag});
           const announcer=document.querySelector('#announcer');
           if(tag==='STRIKE!') announcer?.components['sound__strike']?.playSound();
           if(tag==='SPARE!')  announcer?.components['sound__spare']?.playSound();
+          if(tag==='Gutter!')  announcer?.components['sound__gutter']?.playSound();
 
           downSetNow.forEach(p=>this.fallenSet.add(p));
           this.el.sceneEl.emit('score:roll',{ pins:thisRollKnocked, frame:this.frame, roll:this.roll });
@@ -870,6 +874,7 @@
           <audio id="sfx-pin"    src="assets/sfx/pins-hit.mp3"></audio>
           <audio id="sfx-strike" src="assets/sfx/strike.mp3"></audio>
           <audio id="sfx-spare"  src="assets/sfx/spare.mp3"></audio>
+          <audio id="sfx-gutter" src="assets/sfx/gutter.mp3"></audio>
           <audio id="sfx-music" src="assets/sfx/bgm.mp3" crossorigin="anonymous"></audio>
 
 
@@ -974,6 +979,11 @@
           <a-box position="0.25 0.02 -1.6" width="0.06" height="0.004" depth="0.03"
                 material="color:#fff; emissive:#fff; emissiveIntensity:0.6"
                 shadow="receive: false; cast: false"></a-box>
+          
+          <!-- cercle blanc pour montrer placement du joueur -->
+          <a-entity id="player-indicator" position="0 0.03 0" rotation="-90 0 0">
+            <a-circle radius="0.1" color="white" opacity="1"></a-circle>
+          </a-entity>
 
           <!-- Mur de fond (reculé) -->
           <a-box position="0 0.5 -5.5" width="1.2" height="1.0" depth="0.05"
@@ -1242,7 +1252,8 @@
 
         <a-entity id="announcer"
           sound__strike="src: #sfx-strike; volume: 0.9; positional: false"
-          sound__spare="src: #sfx-spare;  volume: 0.8; positional: false">
+          sound__spare="src: #sfx-spare;  volume: 0.8; positional: false"
+          sound__gutter="src: #sfx-gutter; volume: 0.7; positional: false">
         </a-entity>
 
         <a-entity id="bgm"
@@ -1252,10 +1263,11 @@
 
         <a-entity id="tung" gltf-model="#tung" position="-0.3 0 -0.3" scale="0.1 0.1 0.1" rotation="0 45 0">
           <!-- text tung tung sahur-->
-          <a-entity text="value: Salut l'ami !\n Choisi ta boule et lance la sur les quilles !; align: center; color: #FFF; width: 15"
+          <a-entity text="value: Salut l'ami !\n Fais attention a ne pas depasser la ligne blanche avec la balle sinon, cela comptera comme un lance.; align: center; color: #FFF; width: 15"
                     position="0 16 0"></a-entity>
         </a-entity>
-        
+
+
        <!-- SOL : à y = 0 (garde shape: plane) -->
         <a-plane position="0 -0.1 -1" rotation="-90 0 0" width="100" height="100" opacity="0"
                 shadow="cast: false; receive: true"
