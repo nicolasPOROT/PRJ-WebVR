@@ -180,14 +180,14 @@
       AFRAME.registerComponent('score-keeper', {
         schema: {
           balls:   {type: 'selectorAll', default: '.bowling-ball'},
-          pins:   {type: 'selector', default: '#pins'},
-          board:  {type: 'selector', default: '#score-text'},
-          settleMs:    {type: 'int',    default: 2500},
-          tiltDeg:     {type: 'number', default: 25},
+          pins:    {type: 'selector', default: '#pins'},
+          board:   {type: 'selector', default: '#score-text'},
+          settleMs:{type: 'int',    default: 2500},
+          tiltDeg: {type: 'number', default: 25},
           speedThresh: {type: 'number', default: 0.05},
           maxFrames:   {type: 'int',    default: 10},
           ballReturnMs:{type: 'int',    default: 1800}, // retour auto pour 2e lancer
-          nextFrameMs: {type: 'int',    default: 2000}  // ⬅️ délai avant passage auto à la frame suivante
+          nextFrameMs: {type: 'int',    default: 2000}  // délai avant passage auto à la frame suivante
         },
 
         init() {
@@ -198,11 +198,26 @@
 
           this.timer = null;         // settle timer fin de lancer
           this.ballTimer = null;     // retour auto balle
-          this.nextFrameTimer = null;// ⬅️ timer passage frame auto
+          this.nextFrameTimer = null;// timer passage frame auto
           this.awaitingSettle = false;
 
           this.pinEls = Array.from(this.data.pins.querySelectorAll('a-cylinder'));
           this.pinEls.forEach((p, i) => { if (!p.dataset.idx) p.dataset.idx = String(i+1); });
+
+          // --- [AJOUT] mémorise les filtres de collision initiaux des quilles ---
+          this.pinFilterDefaults = new WeakMap();
+          this.pinEls.forEach(p => {
+            const stash = () => {
+              const b = p.body;
+              if (!b) return;
+              this.pinFilterDefaults.set(p, {
+                group: b.collisionFilterGroup,
+                mask:  b.collisionFilterMask
+              });
+            };
+            if (p.body) stash();
+            else p.addEventListener('body-loaded', stash, {once:true});
+          });
 
           this.ballEls = Array.from(this.data.balls || []);
           this.currentBall = null; // dernière balle utilisée
@@ -214,7 +229,6 @@
             // on garde le max (son « le plus fort » dans la rafale)
             this.hitAccum = Math.max(this.hitAccum, powerNorm);
             if (this.hitTimer) return;     // déjà prévu → on attend la lecture groupée
-
             this.hitTimer = setTimeout(() => {
               const b = this.currentBall;
               if (b) {
@@ -226,7 +240,6 @@
               this.hitTimer = null;
             }, 80); // fenêtre (~80 ms) pour regrouper plusieurs collisions
           };
-
 
           // helper: lire vitesse (m/s)
           this.getSpeed = (el) => {
@@ -296,7 +309,6 @@
             if (speed < this.data.speedThresh) this.evaluateNow();
           };
 
-
           // HARD RESET (bouton) : tout l'état repart à zéro (comme refresh)
           this.onHardReset = () => { this.fullResetState(); };
           this.el.sceneEl.addEventListener('hard-reset', this.onHardReset);
@@ -322,8 +334,8 @@
           this.awaitingSettle = true;
           this.timer = setTimeout(() => this.evaluateNow(), this.data.settleMs);
         },
-        clearTimer()       { if (this.timer) clearTimeout(this.timer); this.timer = null; },
-        clearBallTimer()   { if (this.ballTimer) clearTimeout(this.ballTimer); this.ballTimer = null; },
+        clearTimer()         { if (this.timer) clearTimeout(this.timer); this.timer = null; },
+        clearBallTimer()     { if (this.ballTimer) clearTimeout(this.ballTimer); this.ballTimer = null; },
         clearNextFrameTimer(){ if (this.nextFrameTimer) clearTimeout(this.nextFrameTimer); this.nextFrameTimer = null; },
 
         // ---- posture
@@ -336,6 +348,7 @@
           return deg < this.data.tiltDeg;
         },
         getDownPins() { return this.pinEls.filter(p => !this.isUpright(p)); },
+
         // Convertit une position MONDE -> LOCALE puis déplace l'entité + son body
         moveEntityToWorld(el, worldPos, quat=null) {
           // partie visuelle
@@ -358,6 +371,35 @@
           }
         },
 
+        // --- [AJOUT] rendre une quille traversable (aucun contact/événement)
+        ghostifyPin(pinEl) {
+          const b = pinEl.body; if (!b) return;
+          b.collisionResponse = false;
+          b.collisionFilterMask = 0; // collide avec rien
+          if (b.velocity) b.velocity.set(0,0,0);
+          if (b.angularVelocity) b.angularVelocity.set(0,0,0);
+        },
+
+        // --- [AJOUT] restaurer les collisions d’une quille
+        restorePin(pinEl) {
+          const b = pinEl.body; if (!b) return;
+          const def = this.pinFilterDefaults.get(pinEl);
+          if (def) {
+            b.collisionFilterGroup = def.group;
+            b.collisionFilterMask  = def.mask;
+          } else {
+            // fallback : tout autoriser
+            b.collisionFilterGroup = 1;
+            b.collisionFilterMask  = -1;
+          }
+          b.collisionResponse = true;
+        },
+
+        // --- [AJOUT] restaurer toutes les quilles
+        restoreAllPins() {
+          this.pinEls.forEach(p => this.restorePin(p));
+        },
+
         // Aligne en grille derrière le mur les quilles tombées au 1er lancer
         parkFallenPins() {
           // base MONDE derrière le mur (le tien est vers z≈-5.5)
@@ -378,9 +420,11 @@
             // const quat = new THREE.Quaternion(); // (laisse null pour conserver)
             this.moveEntityToWorld(pinEl, target, null);
             i++;
+
+            // --- [AJOUT] quille rangée = quille "fantôme"
+            this.ghostifyPin(pinEl);
           });
         },
-
 
         // ---- fin de lancer
         evaluateNow() {
@@ -416,10 +460,8 @@
               this.roll = 2;
               // puis retour auto de la balle
               this.scheduleBallReturn();
-               // 🧹 RANGER les quilles tombées du 1er lancer pour qu'elles ne gênent pas
+              // 🧹 RANGER les quilles tombées du 1er lancer pour qu'elles ne gênent pas
               this.parkFallenPins();
-
-              
             }
           } else {
             // fin du 2e lancer -> frame finie -> passage auto
@@ -447,6 +489,11 @@
           this.nextFrameTimer = setTimeout(() => {
             this.isRolling = false;
             this.currentBall?.components['sound__roll']?.stopSound();
+
+            // --- [AJOUT] réactive les collisions des quilles pour la prochaine frame ---
+            this.restoreAllPins();
+
+            // reset visuel/physique
             [...document.querySelectorAll('[resettable]')].forEach(e => e.components.resettable?.resetNow());
             this.advanceFrame();
           }, this.data.nextFrameMs);
@@ -481,11 +528,16 @@
           this.frameComplete = false;
           this.frame = 1;
           this.roll  = 1;
+
+          // --- [AJOUT] en cas de RESET : on remet les quilles "normales"
+          this.restoreAllPins();
+
           this.updateBoard({thisRoll: 0, totalDown: 0, tag: ''});
           this.isRolling = false;
           this.currentBall?.components['sound__roll']?.stopSound();
         }
       });
+
 
 
       // Lance la musique après le premier geste utilisateur (click / enter-vr)
