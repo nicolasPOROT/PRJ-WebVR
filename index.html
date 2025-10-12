@@ -414,12 +414,12 @@
             } else {
               // on passe au 2e lancer + retour automatique de la balle
               this.roll = 2;
-
+              // puis retour auto de la balle
+              this.scheduleBallReturn();
                // 🧹 RANGER les quilles tombées du 1er lancer pour qu'elles ne gênent pas
               this.parkFallenPins();
 
-              // puis retour auto de la balle
-              this.scheduleBallReturn();
+              
             }
           } else {
             // fin du 2e lancer -> frame finie -> passage auto
