@@ -538,7 +538,7 @@
 
         <!-- Lumières -->
         <a-entity light="type: ambient; intensity: 0.4"></a-entity>
-        <a-entity light="type: directional; intensity: 1; castShadow: true" position="2 4 -2"></a-entity>
+        <a-entity light="type: directional; intensity: 1; castShadow: true" position="-104.569 40.500 467.632"></a-entity>
 
         <!-- RIG + caméra + contrôleurs -->
         <a-entity id="rig" position="1 0.2 1" joystick-movement="speed: 2; minX: -0.78; maxX: 2.78; minZ: -6.78; maxZ: 1.78" snap-turn="angle: 30; cooldown: 300">
@@ -575,43 +575,44 @@
           <!-- Approche (zone de départ) -->
           <a-box position="0 0.01 -0.106" width="1.066" height="0.02" depth="2"
                 material="color:#c89c6c; metalness:0.2; roughness:0.7"
+                shadow="cast: true; receive: true"
                 static-body="shape: box"></a-box>
 
           <!-- Ligne de faute -->
           <a-box position="0 0.011 -1.2" width="1.066" height="0.02" depth="0.02"
-                material="color:#ffffff" static-body="shape: box"></a-box>
+                material="color:#ffffff" static-body="shape: box" shadow="cast: true; receive: true"></a-box>
 
           <!-- Piste (segment 1) -->
           <a-box position="0 0.01 -2.1" width="1.066" height="0.02" depth="2.0"
                 material="color:#b38354; metalness:0.2; roughness:0.6"
-                static-body="shape: box"></a-box>
+                static-body="shape: box" shadow="cast: true; receive: true"></a-box>
 
           <!-- Piste (segment 2 – extension) -->
           <!-- L’extension commence juste après le segment 1 : span [-3.9 ; -3.1] -->
           <a-box position="0 0.01 -3.5" width="1.066" height="0.02" depth="0.8"
                 material="color:#b38354; metalness:0.2; roughness:0.6"
-                static-body="shape: box"></a-box>
+                static-body="shape: box" shadow="cast: true; receive: true"></a-box>
 
           <!-- Pin deck (reculé derrière l’extension) -->
           <!-- depth=0.6 => span [-4.3 ; -3.7] -->
           <a-box position="0 0.01 -4.45" width="1.066" height="0.02" depth="2"
                 material="color:#a87447; metalness:0.2; roughness:0.6"
-                static-body="shape: box"></a-box>
+                static-body="shape: box" shadow="cast: true; receive: true"></a-box>
 
           <!-- Gouttières (allongées jusqu’au fond) -->
           <!-- On couvre approximativement de -0.6 à -4.3 => centre -2.45, depth 4 -->
           <a-box position="-0.68 -0.04 -2.45" width="0.28" height="0.02" depth="6"
                 material="color:#6b6b6b; roughness:0.9"
-                static-body="shape: box"></a-box>
+                static-body="shape: box" shadow="cast: true; receive: true"></a-box>
           <a-box position="0.68 -0.04 -2.45" width="0.28" height="0.02" depth="6"
                 material="color:#6b6b6b; roughness:0.9"
-                static-body="shape: box"></a-box>
+                static-body="shape: box" shadow="cast: true; receive: true"></a-box>
 
           <!-- Bordures (rails) allongées pareil que les gouttières -->
           <a-box position="-0.82 0.12 -2.45" width="0.04" height="0.24" depth="6"
-                material="color:#444" static-body="shape: box"></a-box>
+                material="color:#444" static-body="shape: box" shadow="cast: true; receive: true"></a-box>
           <a-box position="0.82 0.12 -2.45" width="0.04" height="0.24" depth="6"
-                material="color:#444" static-body="shape: box"></a-box>
+                material="color:#444" static-body="shape: box" shadow="cast: true; receive: true"></a-box>
 
           <!-- Repères (points) -->
           <a-box position="-0.3 0.02 -1.8" width="0.02" height="0.004" depth="0.02"
@@ -637,18 +638,18 @@
 
           <!-- Mur de fond (reculé) -->
           <a-box position="0 0.5 -5.5" width="1.2" height="1.0" depth="0.05"
-                material="color:#222"></a-box>
+                material="color:#222" shadow="cast: true; receive: true"></a-box>
         </a-entity>
 
         <!-- BOUTON RESET flottant, à droite du départ -->
         <a-entity id="reset-station" position="1.55 0 -0.6">
           <!-- pied fin -->
           <a-box position="0 0.15 0" width="0.04" height="0.9" depth="0.04"
-                material="color:#444" static-body="shape: box"></a-box>
+                material="color:#444" static-body="shape: box" shadow="cast: true; receive: true"></a-box>
 
           <!-- plateau -->
           <a-box position="0 0.61 0" width="0.20" height="0.02" depth="0.20"
-                material="color:#2b2b2b" static-body="shape: box"></a-box>
+                material="color:#2b2b2b" static-body="shape: box" shadow="cast: true; receive: true"></a-box>
 
           <!-- bouton enfonçable -->
           <a-box id="reset-button"
@@ -658,6 +659,7 @@
                 width="0.12" height="0.03" depth="0.12"
                 material="color:#e53935; emissive:#a00000; emissiveIntensity:0.4; metalness:0.2; roughness:0.5"
                 press-button
+                shadow="cast: true; receive: true"
                 static-body="shape: box">
           </a-box>
 
@@ -720,7 +722,7 @@
                 static-body="shape: box"></a-box>
           <a-entity position="-0.305 0.605 0.219" rotation="0 90 0">
             <a-plane width="0.5" height="0.2" color="#222" opacity="0.8"></a-plane>
-            <a-entity text="value: Balle moyenne; align: center; color: #0f0; width: 1.4"
+            <a-entity text="value: Balle normal; align: center; color: #0f0; width: 1.4"
                       position="0 0 0.01"></a-entity>
           </a-entity>
         </a-entity>
@@ -746,7 +748,7 @@
                 static-body="shape: box"></a-box>
           <a-entity position="-0.305 0.605 0.219" rotation="0 90 0">
             <a-plane width="0.5" height="0.2" color="#222" opacity="0.8"></a-plane>
-            <a-entity text="value: Balle difficile; align: center; color: #0f0; width: 1.4"
+            <a-entity text="value: Balle impossible; align: center; color: #0f0; width: 1.4"
                       position="0 0 0.01"></a-entity>
           </a-entity>
         </a-entity>
@@ -762,7 +764,7 @@
         <!-- Boules de bowling -->
 
          <!-- facile -->
-        <a-sphere id="ball-easy" class="bowling-ball grabbable" resettable position="-0.081 0.170 0.408" radius="0.15" color="#EF2D5E"
+        <a-sphere id="ball-easy" class="bowling-ball grabbable" resettable position="-0.081 0.170 0.408" radius="0.2" color="#EF2D5E"
                   shadow="cast: true; receive: true" opacity="0"
                   grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
                   dynamic-body="mass: 10; shape: sphere"
@@ -773,7 +775,7 @@
         </a-sphere>
 
           <!-- moyen -->
-        <a-sphere id="ball-medium" class="bowling-ball grabbable" resettable position="-0.081 0.170 0.918" radius="0.15" color="#EF2D5E"
+        <a-sphere id="ball-medium" class="bowling-ball grabbable" resettable position="-0.081 0.170 0.918" radius="0.1" color="#EF2D5E"
                   shadow="cast: true; receive: true" opacity="0"
                   grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
                   dynamic-body="mass: 1; shape: sphere"
@@ -784,7 +786,7 @@
         </a-sphere>
 
           <!-- difficile -->
-        <a-sphere id="ball-hard" class="bowling-ball grabbable" resettable position="-0.081 0.170 1.428" radius="0.15" color="#EF2D5E"
+        <a-sphere id="ball-hard" class="bowling-ball grabbable" resettable position="-0.081 0.170 1.428" radius="0.01" color="#EF2D5E"
                   shadow="cast: true; receive: true" opacity="0"
                   grabbable="usePhysics: only; startButtons: gripdown, squeezestart; endButtons: gripup, squeezeend"
                   dynamic-body="mass: 0.1; shape: sphere"
