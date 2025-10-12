@@ -599,8 +599,20 @@
             this.refresh();
           };
           this.onHardReset = () => { this.resetAll(); };
-          this.onScoreReset = () => { this.resetAll(); };
+          this.onScoreReset = () => {
+          // Récupère le total de la partie qui se termine
+          const total = this.getTotal();
 
+          // L’affiche à gauche
+          const lastText = document.querySelector('#last-score-text');
+          if (lastText) {
+            lastText.setAttribute('text', 'value', `Dernier score: ${total}`);
+          }
+
+          // Puis on remet à zéro l’affichage du tableau
+          this.resetAll();
+        };
+        
           this.el.sceneEl.addEventListener('score:roll',  this.onRoll);
           this.el.sceneEl.addEventListener('hard-reset',  this.onHardReset);
           this.el.sceneEl.addEventListener('score:reset', this.onScoreReset);
@@ -787,6 +799,14 @@
           }
           return frames;
         },
+
+        getTotal() {
+          const frames = this.computeFrames();
+          let total = 0;
+          for (const f of frames) if (f.cum != null) total = f.cum;
+          return total;
+        },
+
 
 
         refresh() {
@@ -1260,6 +1280,15 @@
                                 \nCe jeu a ete realise dans le cadre du projet WebVR par Fabio MALTA, Nicolas POROT, Mateo BIAUT et Benjamin JOANNARD; align: center; color: #fff; width: 2.2"
                     position="1 0 0.01"></a-entity>
         </a-entity>
+
+        <!-- Panneau Dernier score (miroir à gauche du tableau) -->
+        <a-entity id="last-score-board" position="0 1 -2" rotation="0 30 0">
+          <a-plane width="0.7" height="0.35" color="#222" opacity="0.8"></a-plane>
+          <a-entity id="last-score-text"
+                    text="value: Dernier score: --; align: center; color: #9ad; width: 1.8"
+                    position="0 0 0.01"></a-entity>
+        </a-entity>
+
 
 
         <a-entity id="announcer"
