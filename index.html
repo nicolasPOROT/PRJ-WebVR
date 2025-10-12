@@ -428,55 +428,56 @@
 
         // ---- fin de lancer
         evaluateNow() {
-          if (this.frameComplete) return;
-          this.clearTimer();
-          this.awaitingSettle = false;
+        if (this.frameComplete) return;
+        this.clearTimer();
+        this.awaitingSettle = false;
 
-          const downNow = this.getDownPins();
-          const downSetNow = new Set(downNow);
-          const thisRollKnocked = downNow.filter(p => !this.fallenSet.has(p)).length;
-          const totalDown = new Set([...this.fallenSet, ...downSetNow]).size;
+        const downNow = this.getDownPins();
+        const downSetNow = new Set(downNow);
+        const thisRollKnocked = downNow.filter(p => !this.fallenSet.has(p)).length;
+        const totalDown = new Set([...this.fallenSet, ...downSetNow]).size;
 
-          let tag = '';
-          if (this.roll === 1 && totalDown === 10) tag = 'STRIKE!';
-          if (this.roll === 2 && totalDown === 10) tag = 'SPARE!';
-          this.updateBoard({thisRoll: thisRollKnocked, totalDown, tag});
-          const announcer = document.querySelector('#announcer');
-          if (tag === 'STRIKE!') announcer?.components['sound__strike']?.playSound();
-          if (tag === 'SPARE!')  announcer?.components['sound__spare']?.playSound();
+        let tag = '';
+        if (this.roll === 1 && totalDown === 10) tag = 'STRIKE!';
+        if (this.roll === 2 && totalDown === 10) tag = 'SPARE!';
+        this.updateBoard({thisRoll: thisRollKnocked, totalDown, tag});
+        const announcer = document.querySelector('#announcer');
+        if (tag === 'STRIKE!') announcer?.components['sound__strike']?.playSound();
+        if (tag === 'SPARE!')  announcer?.components['sound__spare']?.playSound();
 
-          // persiste tombées
-          downSetNow.forEach(p => this.fallenSet.add(p));
-          
-          // --- NEW: prévenir le tableau de score ---
-          this.el.sceneEl.emit('score:roll', {
-            pins: thisRollKnocked,
-            frame: this.frame,
-            roll:  this.roll
-          });
+        // persiste tombées
+        downSetNow.forEach(p => this.fallenSet.add(p));
 
-          // avance d'état + automatisme
-          if (this.roll === 1) {
-            if (totalDown === 10) {
-              // STRIKE -> frame finie -> passage auto à la frame suivante
-              this.frameComplete = true;
-              this.clearBallTimer();
-              this.scheduleNextFrame();
-            } else {
-              // on passe au 2e lancer + retour automatique de la balle
-              this.roll = 2;
-              // puis retour auto de la balle
-              this.scheduleBallReturn();
-              // 🧹 RANGER les quilles tombées du 1er lancer pour qu'elles ne gênent pas
-              this.parkFallenPins();
-            }
-          } else {
-            // fin du 2e lancer -> frame finie -> passage auto
+        // --- NEW: prévenir le tableau de score ---
+        this.el.sceneEl.emit('score:roll', {
+          pins: thisRollKnocked,
+          frame: this.frame,
+          roll:  this.roll
+        });
+
+        // avance d'état + automatisme
+        if (this.roll === 1) {
+          if (totalDown === 10) {
+            // STRIKE -> frame finie -> passage auto à la frame suivante
             this.frameComplete = true;
             this.clearBallTimer();
             this.scheduleNextFrame();
+          } else {
+            // on passe au 2e lancer
+            this.roll = 2;
+            // retour auto de la balle
+            this.scheduleBallReturn();
+            // 🧹 ranger les quilles tombées du 1er lancer
+            this.parkFallenPins();
           }
-        },
+        } else {
+          // fin du 2e lancer -> frame finie -> passage auto
+          this.frameComplete = true;
+          this.clearBallTimer();
+          this.scheduleNextFrame();
+        }
+      },
+
 
         // Retour auto : reset uniquement la balle "active", fallback sur la 1re si besoin
         scheduleBallReturn() {
@@ -834,7 +835,7 @@
         vr-mode-ui="enabled: true"
         device-orientation-permission-ui="enabled: true"
         physics="gravity: -9.8; debug: false"
-        score-keeper="balls: .bowling-ball; pins: #pins; board: #score-text; settleMs: 3000; tiltDeg: 25">
+        score-keeper="balls: .bowling-ball; pins: #pins; board: #score-text; settleMs: 2000; tiltDeg: 25">
         <!-- Assets -->
         <a-assets>
 
